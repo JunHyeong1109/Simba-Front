@@ -1,0 +1,47 @@
+/* 컨테이너 래퍼 */
+.map_wrap {
+  position: relative;
+  width: calc(100%-30%);
+  height: 500px;
+  margin-left:30%;
+}
+
+/* 지도 DIV */
+.map_canvas {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 좌측 상단 주소 박스 */
+.hAddr {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 1;
+  padding: 5px;
+}
+
+/* 제목 */
+.title {
+  font-weight: bold;
+  display: block;
+}
+
+/* 중심 주소 텍스트 */
+#centerAddr {
+  display: block;
+  margin-top: 2px;
+  font-weight: normal;
+}
+
+/* 인포윈도우 내부 컨텐츠 */
+.bAddr {
+  padding: 5px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}

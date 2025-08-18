@@ -1,0 +1,20 @@
+.content-input {
+  width: 80%;
+  height: 500px;
+  margin-right: auto;
+  margin-left: auto;
+  display : block;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  font-size: 14px;
+  border: 1px solid  #9aa0a6;
+  background: #fff;
+  color: #111;             
+  outline: none; 
+}
+
+/* placeholder 상태일 때만 회색 표시 */
+.title-input.is-placeholder {
+  color: #9aa0a6;
+}
+

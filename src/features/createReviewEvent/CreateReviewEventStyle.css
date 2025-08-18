@@ -1,0 +1,11 @@
+.app-row{
+  display: flex;       
+  gap: 12px;           
+  align-items: center;
+}
+
+.app-row2{
+  width : 70%;
+  margin: 0px auto;
+  display : block;
+}
