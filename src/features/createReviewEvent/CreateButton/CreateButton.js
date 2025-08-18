@@ -1,14 +1,15 @@
 // src/features/createReviewEvent/CreateButton/CreateButton.js
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useReviewStore } from "../../../shared/reviewStore";
+import api from "../../../api"; // ✅ axios 인스턴스
 
 export default function CreateButton({ collect }) {
-  const addEvent = useReviewStore((s) => s.addEvent);
   const navigate = useNavigate();
   const [pending, setPending] = useState(false);
 
-  const onClick = () => {
+  const toISO = (d) => (d ? new Date(d).toISOString().slice(0, 19) : "");
+
+  const onClick = async () => {
     if (pending) return;
 
     const data = collect?.() ?? null;
@@ -17,49 +18,43 @@ export default function CreateButton({ collect }) {
       return;
     }
 
-    // 문자열 정규화
+    // collect가 startAt/endAt 또는 startDate/endDate 중 무엇을 주든 처리
     const title = String(data.title ?? "").trim();
-    const desc = String(data.desc ?? "");
-    const shopName = String(data.shopName ?? "");
-    const address = String(data.address ?? "").trim();
-    const startDate = String(data.startDate ?? "");
-    const endDate = String(data.endDate ?? "");
+    const description = String(data.desc ?? "").trim();
+    const storeId = Number(data.storeId ?? document.getElementById("event-store-id")?.value ?? 0);
 
-    // 좌표는 숫자로 안전 변환 (빈값/NaN 제외)
-    const latRaw = data.lat ?? "";
-    const lngRaw = data.lng ?? "";
-    const latNum =
-      latRaw === "" || latRaw === null || latRaw === undefined
-        ? undefined
-        : Number(latRaw);
-    const lngNum =
-      lngRaw === "" || lngRaw === null || lngRaw === undefined
-        ? undefined
-        : Number(lngRaw);
-    const hasCoords = Number.isFinite(latNum) && Number.isFinite(lngNum);
+    const rawStart = data.startAt || data.startDate || "";
+    const rawEnd = data.endAt || data.endDate || "";
 
-    if (!title) {
-      alert("제목을 입력하세요.");
-      return;
-    }
-    if (!hasCoords && !address) {
-      alert("좌표(lat/lng) 또는 주소를 입력하세요.");
-      return;
+    const startAt = toISO(rawStart);
+    const endAt = toISO(rawEnd);
+
+    if (!title) return alert("제목을 입력하세요.");
+    if (!storeId) return alert("매장을 선택하세요.");
+    if (!endAt) return alert("종료일을 선택하세요.");
+    if (startAt && new Date(startAt) > new Date(endAt)) {
+      return alert("시작일이 종료일보다 늦을 수 없습니다.");
     }
 
-    setPending(true);
-    addEvent({
+    const payload = {
       title,
-      desc,
-      shopName,
-      address,
-      lat: hasCoords ? latNum : undefined,
-      lng: hasCoords ? lngNum : undefined,
-      startDate,
-      endDate,
-    });
-    setPending(false);
-    navigate("/"); // 등록 후 지도
+      description,
+      storeId,
+      ...(startAt ? { startAt } : {}),
+      endAt,
+    };
+
+    try {
+      setPending(true);
+      await api.post("/itda/missions", payload); // ✅ 백엔드로 전송
+      alert("미션이 생성되었습니다.");
+      navigate("/"); // 필요 시 미션 목록/상세로 이동 경로 변경
+    } catch (e) {
+      const msg = e?.response?.data?.message || "미션 생성에 실패했습니다.";
+      alert(msg);
+    } finally {
+      setPending(false);
+    }
   };
 
   return (
