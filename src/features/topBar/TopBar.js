@@ -5,7 +5,7 @@ import "./TopBar.css";
 export default function TopBar({
   user = null,
   onLogout,
-  homeRoute = "/",
+  homeRoute = "/main",
   loginRoute = "/login",
   myPageRoute = "/mypage",
 }) {

@@ -1,29 +1,57 @@
+// src/features/main/MainPage.js
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom"; // ✅ Outlet context 사용
 import api from "../../api";
 import "./MainPage.css";
 
 const MAP_ROUTE = "/map";
 const MANAGE_ROUTE = "/manage";
 
-// 미리보기/요약 개수 제한 (과도한 병렬요청 방지)
 const PREVIEW_LIMIT = 8;
 const SUMMARY_LIMIT = 12;
 
 export default function MainPage() {
   const navigate = useNavigate();
 
+  // ✅ AppLayout의 <Outlet context={{ user, setUser }}> 로부터 user 받기
+  const outletCtx = useOutletContext();
+  const user = outletCtx?.user ?? null;
+
+  // 권한 판별 유틸: OWNER/ADMIN만 허용, REVIEWER는 불가
+  const canManageStores = (u) => {
+    if (!u) return false;
+    // 단일 role 혹은 roles 배열 모두 대응
+    const single = (u.role ? String(u.role) : "").toUpperCase();
+    if (single) return single === "OWNER" || single === "ADMIN";
+    const arr = Array.isArray(u.roles) ? u.roles.map((r) => String(r).toUpperCase()) : [];
+    return arr.includes("OWNER") || arr.includes("ADMIN");
+  };
+
+  // ✅ '매장 관리' 클릭 핸들러: 로그인/권한 체크
+  const handleManageClick = () => {
+    if (!user) {
+      alert("로그인이 필요합니다.");
+      navigate("/login"); // 로그인 페이지 경로에 맞게 수정 가능
+      return;
+    }
+    if (!canManageStores(user)) {
+      // 요청: 리뷰어면 권한 없음 메시지
+      alert("권한이 없습니다. (리뷰어는 접근할 수 없습니다.)");
+      return;
+    }
+    navigate(MANAGE_ROUTE);
+  };
+
   // 1) joinable 미션 → 매장별 미리보기
   const [msLoading, setMsLoading] = useState(true);
   const [msError, setMsError] = useState("");
-  const [missionStores, setMissionStores] = useState([]); // [{storeId,name,address,count,poster,lat,lng}]
+  const [missionStores, setMissionStores] = useState([]);
 
   // 2) 모든 매장 한 줄 요약
   const [sumLoading, setSumLoading] = useState(true);
   const [sumError, setSumError] = useState("");
-  const [summaries, setSummaries] = useState([]); // [{id,name,summary}]
+  const [summaries, setSummaries] = useState([]);
 
-  // ── 미션이 올라온 매장 미리보기 로드
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -34,7 +62,6 @@ export default function MainPage() {
         const { data } = await api.get("/itda/missions/joinable");
         const list = Array.isArray(data) ? data : data?.items || [];
 
-        // 매장별 그룹핑
         const byStore = new Map();
         for (const m of list) {
           const s = m.store || {};
@@ -49,7 +76,7 @@ export default function MainPage() {
               storeId: sid,
               name: s.name || m.storeName || "매장",
               address: s.address || m.address || "",
-              poster, // 첫 미션 포스터를 대표로
+              poster,
               count: 1,
             });
           } else {
@@ -74,7 +101,6 @@ export default function MainPage() {
     return () => { alive = false; };
   }, []);
 
-  // ── 모든 매장 한 줄 요약 로드
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -82,10 +108,9 @@ export default function MainPage() {
         setSumLoading(true);
         setSumError("");
 
-        // 모든 매장 목록 (백엔드가 전체를 반환한다고 가정)
         const { data } = await api.get("/itda/stores");
         const stores = Array.isArray(data) ? data : data?.items || [];
-        const pick = stores.slice(0, SUMMARY_LIMIT); // 상위 일부만 조회
+        const pick = stores.slice(0, SUMMARY_LIMIT);
 
         if (pick.length === 0) {
           if (!alive) return;
@@ -93,7 +118,6 @@ export default function MainPage() {
           return;
         }
 
-        // 각 매장 요약 병렬 조회
         const results = await Promise.allSettled(
           pick.map(async (s) => {
             const { data: sum } = await api.get(`/itda/stores/${s.id}/summary`);
@@ -143,7 +167,7 @@ export default function MainPage() {
         <button
           type="button"
           className="main-card"
-          onClick={() => navigate(MANAGE_ROUTE)}
+          onClick={handleManageClick}  // ✅ 권한 체크하는 핸들러
           aria-label="내 매장 관리로 이동"
         >
           <div className="card-emoji" aria-hidden>🏪</div>
@@ -198,7 +222,7 @@ export default function MainPage() {
           )}
         </section>
 
-        {/* 섹션 B: 모든 매장의 한 줄 요약 (관리 버튼 제거) */}
+        {/* 섹션 B: 모든 매장의 한 줄 요약 */}
         <section className="home-section">
           <div className="section-header">
             <h3 className="section-title">매장의 한 줄 평가!</h3>
