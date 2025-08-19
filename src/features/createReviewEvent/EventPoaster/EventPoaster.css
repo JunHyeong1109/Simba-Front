@@ -1,0 +1,31 @@
+/* 업로드/미리보기 버튼 줄 */
+.poster-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;         /* 줄바꿈 X */
+  white-space: nowrap;       /* 텍스트 줄바꿈 금지 */
+}
+
+/* 버튼 공통 */
+.poster-btn {
+  padding: 8px 12px;
+  border: 1px solid #dcdcdc;
+  background: #f7f7f7;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  line-height: 1;
+}
+.poster-btn:hover { background: #ececec; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.poster-btn:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
+
+/* 파일명은 너무 길면 '…' 처리 */
+.poster-filename {
+  max-width: 200px;          /* 한 줄 유지용 폭 제한 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #666;
+  font-size: 13px;
+}

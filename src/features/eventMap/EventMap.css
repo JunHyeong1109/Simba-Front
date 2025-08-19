@@ -1,0 +1,43 @@
+/* src/features/eventMap/EventMap.css */
+
+/* 페이지 폭 80% 래퍼 */
+.event-page-80 {
+  width: 80%;
+  margin: 0 auto;
+}
+
+/* 상단: 리스트 + 지도 2열 */
+.map-list-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+
+/* 왼쪽: 리스트 */
+.list-col {
+  flex: 0 0 30%;
+  max-width: 420px;
+  height: 500px;         /* 지도 높이와 맞춤 */
+  overflow: auto;        /* 스크롤 */
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+/* 오른쪽: 지도 */
+.map-col {
+  flex: 1 1 70%;
+  min-width: 0;          /* overflow 방지 */
+}
+
+/* 반응형: 좁은 화면에선 세로 스택 */
+@media (max-width: 900px) {
+  .map-list-layout {
+    flex-direction: column;
+  }
+  .list-col {
+    max-width: none;
+    height: auto;
+  }
+}

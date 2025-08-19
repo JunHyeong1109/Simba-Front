@@ -1,11 +1,29 @@
-.app-row{
-  display: flex;       
-  gap: 12px;           
-  align-items: center;
+/* 바깥 래퍼: 폭 80% + 가운데 정렬 */
+.app-row2 {
+  width: 80%;
+  margin: 0 auto;
+  display: block;
 }
 
-.app-row2{
-  width : 70%;
-  margin: 0px auto;
-  display : block;
+/* 상단 컨트롤 한 줄 고정 + 가로 스크롤 */
+.app-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;       /* 절대 줄바꿈 X */
+  overflow-x: auto;        /* 좁으면 가로 스크롤 */
+  padding-bottom: 4px;     /* 스크롤바 겹침 방지 소량 여백 */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable both-edges; /* 스크롤 바운스 줄임(지원 브라우저) */
 }
+
+/* 각 아이템을 '내용 크기만큼' 차지 → 한 줄 유지 */
+.app-row > * {
+  flex: 0 0 auto;
+  min-width: 0;            /* 내부 요소가 너무 커도 레이아웃 깨짐 방지 */
+}
+
+/* (선택) 스크롤바 조금 얇게 */
+.app-row::-webkit-scrollbar { height: 8px; }
+.app-row::-webkit-scrollbar-thumb { background: #c9c9c9; border-radius: 999px; }
+.app-row::-webkit-scrollbar-track { background: transparent; }

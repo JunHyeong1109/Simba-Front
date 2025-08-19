@@ -1,12 +1,13 @@
 .select-input {
-  width: 100px;
+  width: 100%;              /* 100px → 100% */
+  min-width: 140px;
   height: 38px;
   padding: 8px 10px;
   box-sizing: border-box;
   font-size: 14px;
   border: 1px solid #d9d9d9;
   background: #fff;
-  color: #111;                 /* 기본은 진하게 */
+  color: #111;              /* 기본 진하게 */
 }
 
 /* placeholder 상태일 때만 회색 표시 */

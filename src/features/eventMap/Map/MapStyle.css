@@ -1,9 +1,11 @@
+/* src/features/eventMap/Map/MapStyle.css */
+
 /* 컨테이너 래퍼 */
 .map_wrap {
   position: relative;
-  width: calc(100%-30%);
-  height: 500px;
-  margin-left:30%;
+  width: 100%;
+  height: 500px;   /* 상단 리스트 높이와 동일 */
+  margin: 0;
 }
 
 /* 지도 DIV */

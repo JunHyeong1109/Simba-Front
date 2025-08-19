@@ -12,7 +12,7 @@ export const router = createBrowserRouter([
     path: "/",
     element: <AppLayout />,
     children: [
-      { index: true, element: <EventMap /> },
+      { path: "map/*", element: <EventMap /> },
       { path: "edit/*", element: <EditShop /> },
       { path: "event/*", element: <CreateReviewEvent /> },
       { path: "manage/*", element: <ManageShop /> }, 

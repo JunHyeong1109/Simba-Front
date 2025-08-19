@@ -1,13 +1,13 @@
-// src/features/eventMap/Map/Map.js  (경로는 프로젝트에 맞게)
+// src/features/eventMap/Map/Map.js
 import { useEffect, useRef, useState } from "react";
 import loadKakaoMaps from "./KakaoLoader";
 import getCurrentLocation from "./Location";
-import api from "../../../api"; // ← 경로 조정
+import api from "../../../api"; // ← 경로는 프로젝트 구조에 맞게 조정
 import "./MapStyle.css";
 
 const KAKAO_APP_KEY = "261b88294b81d5800071641ecc633dcb";
 
-export default function Map() {
+export default function Map({ onMissionSelect }) {
   // joinable 미션 목록
   const [missions, setMissions] = useState([]);
 
@@ -20,7 +20,7 @@ export default function Map() {
 
   // 미션 마커/인포윈도우 관리
   const missionMarkersRef = useRef([]);
-  const missionInfoWindowRef = useRef(null); // 미션용 공용 InfoWindow (하나만 써서 중복닫힘 방지)
+  const missionInfoWindowRef = useRef(null); // 공용 InfoWindow(1개)
 
   // 1) 최초 1회: 지도 초기화 (빈 곳 클릭시 상세 주소 X)
   useEffect(() => {
@@ -113,7 +113,7 @@ export default function Map() {
     };
   }, []);
 
-  // 3) joinable 미션 → 마커로 표시 (마커 클릭 시 상세 주소 역지오코딩하여 함께 표시)
+  // 3) joinable 미션 → 마커로 표시 (마커 클릭 시 상세 주소 역지오코딩하여 함께 표시 + 상위로 선택 알림)
   useEffect(() => {
     const kakao = window.kakao;
     const map = mapRef.current;
@@ -175,6 +175,14 @@ export default function Map() {
 
         missionInfoWindowRef.current?.setContent(html);
         missionInfoWindowRef.current?.open(map, marker);
+
+        // ✅ 상위(부모)로 선택된 미션 알림 → 하단 상세 패널/외부 로직에서 사용
+        onMissionSelect?.({
+          mission: ms,
+          lat,
+          lng,
+          address: { road, jibun },
+        });
       });
     };
 
@@ -189,12 +197,14 @@ export default function Map() {
 
       const pos = new kakao.maps.LatLng(lat, lng);
       const marker = new kakao.maps.Marker({ position: pos, map, title: ms.title });
+
       kakao.maps.event.addListener(marker, "click", () =>
         openMissionInfo(marker, ms, lat, lng)
       );
+
       missionMarkersRef.current.push(marker);
     });
-  }, [missions]);
+  }, [missions, onMissionSelect]);
 
   return (
     <div className="map_wrap">

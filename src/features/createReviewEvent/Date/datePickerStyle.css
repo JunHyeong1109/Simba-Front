@@ -1,13 +1,15 @@
-/* 가로 배치 컨테이너 */
+/* 두 입력을 한 줄에 */
 .date-row {
   display: flex;
-  gap: 12px;           /* 좌우 간격 */
+  gap: 8px;
   align-items: center;
+  flex-wrap: nowrap;       /* 줄바꿈 금지 */
+  white-space: nowrap;
 }
 
-/* 인풋 자체 스타일 */
+/* 개별 인풋: 고정폭 (너무 넓지 않게) */
 .date-input {
-  width: 220px;        /* 고정 폭으로 레이아웃 흔들림 방지 */
+  width: 200px;            /* 필요 시 180~220px 사이로 조절 */
   height: 38px;
   padding: 8px 10px;
   box-sizing: border-box;
@@ -16,7 +18,7 @@
   background: #fff;
 }
 
-/* react-datepicker가 내부에 실제 input을 감싸서 렌더링하므로 그 부분도 정리 */
+/* react-datepicker 내부 input 정리 */
 .date-input .react-datepicker__input-container input {
   width: 100%;
   height: 100%;
@@ -25,7 +27,5 @@
   outline: none;
 }
 
-/* 팝오버가 다른 요소 뒤로 들어가는 문제 방지 */
-.global-fix .react-datepicker-popper {
-  z-index: 9999;
-}
+/* 팝오버 z-index */
+.global-fix .react-datepicker-popper { z-index: 9999; }
