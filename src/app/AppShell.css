@@ -1,0 +1,6 @@
+:root { --topbar-h: 56px; }
+
+/* 상단 바 고정 공간만큼 여백 */
+.app-main {
+  padding-top: var(--topbar-h);
+}
