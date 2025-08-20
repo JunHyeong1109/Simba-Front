@@ -1,7 +1,98 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../../api"; // 프로젝트 구조에 맞게 경로 확인
-import "./ManageShop.css";  // 스타일 파일이 없다면 이 줄은 지워도 됩니다.
+import api from "../../api";
+import "./ManageShop.css";
+
+/** 숫자화 유틸 */
+const toNum = (v) => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "string" ? Number(v) : v;
+  return Number.isFinite(n) ? n : null;
+};
+
+/** 카테고리 라벨 */
+const catLabel = (c) => {
+  const map = {
+    CAFE: "카페",
+    RESTAURANT: "식당",
+    ETC: "기타",
+    0: "카페",
+    1: "식당",
+    2: "기타",
+    "0": "카페",
+    "1": "식당",
+    "2": "기타",
+  };
+  return map[c] || c || "-";
+};
+
+/** ✅ 백엔드 응답을 화면용 공통 스키마로 정규화 */
+const normalizeStore = (raw = {}) => {
+  // id
+  const id =
+    raw.id ?? raw.storeId ?? raw.storeID ?? raw._id ?? null;
+
+  // name
+  const name =
+    raw.name ?? raw.storeName ?? raw.title ?? raw.shopName ?? "-";
+
+  // ownerName
+  const ownerName =
+    raw.ownerName ?? raw.bossName ?? raw.owner ?? raw.contactName ?? raw.owner_full_name ?? "-";
+
+  // businessNumber
+  const businessNumber =
+    raw.businessNumber ??
+    raw.bizNo ??
+    raw.businessRegistrationNumber ??
+    raw.registrationNumber ??
+    raw.brn ??
+    raw.business_number ??
+    "-";
+
+  // address (도로명/지번/합쳐진 주소 중 하나)
+  const address =
+    raw.address ??
+    raw.roadAddress ??
+    raw.road_address ??
+    raw.jibunAddress ??
+    raw.addr ??
+    raw.fullAddress ??
+    "-";
+
+  // category
+  const category =
+    raw.category ?? raw.categoryCode ?? raw.type ?? raw.storeType ?? null;
+
+  // latitude / longitude
+  const latitude = toNum(
+    raw.latitude ?? raw.lat ?? raw.y ?? raw.geoLat ?? raw.location?.lat
+  );
+  const longitude = toNum(
+    raw.longitude ?? raw.lng ?? raw.x ?? raw.geoLng ?? raw.location?.lng
+  );
+
+  return {
+    id,
+    name,
+    ownerName,
+    businessNumber,
+    address,
+    category,
+    latitude,
+    longitude,
+    // 원본이 필요하면 raw도 유지 가능
+    __raw: raw,
+  };
+};
+
+/** 사업자번호 포맷팅 */
+const fmtBizNo = (bn) => {
+  const d = String(bn ?? "").replace(/\D/g, "");
+  return d.length === 10
+    ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`
+    : (bn || "-");
+};
 
 export default function ManageShop() {
   const navigate = useNavigate();
@@ -17,19 +108,14 @@ export default function ManageShop() {
       try {
         setLoading(true);
         setErr("");
-        // 현재 로그인한 유저의 매장 목록
+
         const { data } = await api.get("/itda/stores");
         const list = Array.isArray(data) ? data : data?.items || [];
-        if (!alive) return;
 
-        // BigDecimal 문자열로 올 수 있는 lat/lng 숫자화
-        const normalized = list.map((s) => ({
-          ...s,
-          latitude:
-            typeof s.latitude === "string" ? Number(s.latitude) : s.latitude,
-          longitude:
-            typeof s.longitude === "string" ? Number(s.longitude) : s.longitude,
-        }));
+        // ✅ 각 항목을 정규화
+        const normalized = list.map((item) => normalizeStore(item));
+
+        if (!alive) return;
         setStores(normalized);
       } catch (e) {
         if (!alive) return;
@@ -40,37 +126,15 @@ export default function ManageShop() {
       }
     })();
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
-  const fmtBizNo = (bn) => {
-    const d = String(bn ?? "").replace(/\D/g, "");
-    return d.length === 10
-      ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`
-      : (bn || "-");
-  };
-
-  const catLabel = (c) => {
-    const map = {
-      CAFE: "카페",
-      RESTAURANT: "식당",
-      ETC: "기타",
-      0: "카페",
-      1: "식당",
-      2: "기타",
-    };
-    return map[c] || c || "-";
-  };
-
   const goCreate = () => {
-    // 추가 페이지: /edit/* 라우터의 인덱스(추가 화면)로 이동
     navigate("/edit");
   };
 
   const goEdit = (store) => {
-    // 편집 페이지: /edit/:storeId
+    // ✅ 정규화된 데이터 통째로 넘김 → Inner.js에서 state 활용 가능
     navigate(`/edit/${store.id}`, { state: store });
   };
 
@@ -123,7 +187,7 @@ export default function ManageShop() {
       >
         {stores.map((s) => (
           <div
-            key={s.id}
+            key={s.id ?? Math.random()}
             className="shop-card"
             role="button"
             tabIndex={0}
@@ -144,7 +208,7 @@ export default function ManageShop() {
               <span className="shop-name" style={{ fontWeight: 700, fontSize: 16 }}>
                 {s.name || "-"}
               </span>
-              {s.category && (
+              {s.category != null && (
                 <span
                   className="shop-category"
                   style={{
@@ -173,14 +237,20 @@ export default function ManageShop() {
               <span className="label" style={{ width: 88, color: "#777", flex: "0 0 88px" }}>
                 사업자번호
               </span>
-              <span className="value" style={{ color: "#333" }}>{fmtBizNo(s.businessNumber)}</span>
+              <span className="value" style={{ color: "#333" }}>
+                {fmtBizNo(s.businessNumber)}
+              </span>
             </div>
 
             <div className="shop-meta" style={{ display: "flex", gap: 8, fontSize: 14, margin: "4px 0" }}>
               <span className="label" style={{ width: 88, color: "#777", flex: "0 0 88px" }}>
                 주소
               </span>
-              <span className="value" style={{ color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span
+                className="value"
+                style={{ color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={s.address || ""}
+              >
                 {s.address || "-"}
               </span>
             </div>

@@ -36,7 +36,7 @@ export default function AddrPickerModal({
     });
 
   const initMap = async () => {
-    if (!window.kakao?.maps) {
+    if (!window.kakao.maps) {
       setError("Kakao Maps SDK가 로드되지 않았습니다. index.html을 확인하세요.");
       return;
     }
