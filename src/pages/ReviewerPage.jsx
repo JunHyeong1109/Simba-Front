@@ -7,28 +7,45 @@ export default function ReviewPage() {
 
   const [reviews, setReviews] = useState([]);
   const [text, setText] = useState("");
+  const [rating, setRating] = useState(0); // 별점 저장
+  const [image, setImage] = useState(null); // 이미지 저장
 
+  // 별점 클릭
+  const handleStarClick = (value) => {
+    setRating(value);
+  };
+
+  // 이미지 업로드
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const previewUrl = URL.createObjectURL(file);
+      setImage({ file, previewUrl });
+    }
+  };
+
+  // 리뷰 등록
   const handleAddReview = () => {
-    if (!text.trim()) return;
+    if (!text.trim() || rating === 0) return; // 내용과 별점 필수
 
     const today = new Date();
-
-    // 한국 시간으로 변환 (UTC +9)
-    const kstOffset = 9 * 60; // 분 단위
+    const kstOffset = 9 * 60;
     const kstTime = new Date(today.getTime() + kstOffset * 60 * 1000);
-
-    // 날짜 형식: YYYY.MM.DD
     const formattedDate = kstTime.toISOString().slice(0, 10).replace(/-/g, ".");
 
     const newReview = {
       id: Date.now(),
       name: user.nickname,
       text,
+      rating,
       date: formattedDate,
+      image: image?.previewUrl || null,
     };
 
     setReviews([newReview, ...reviews]); // 최신순
     setText("");
+    setRating(0);
+    setImage(null);
   };
 
   return (
@@ -54,7 +71,18 @@ export default function ReviewPage() {
                   <span className="review-name">{review.name}</span>
                   <span className="review-date">{review.date}</span>
                 </div>
+                <div className="review-stars">
+                  {"★".repeat(review.rating)}
+                  {"☆".repeat(5 - review.rating)}
+                </div>
                 <div className="review-text">{review.text}</div>
+                {review.image && (
+                  <img
+                    src={review.image}
+                    alt="리뷰 이미지"
+                    className="review-image"
+                  />
+                )}
               </div>
             </div>
           ))
@@ -63,6 +91,20 @@ export default function ReviewPage() {
 
       {/* 입력창 */}
       <div className="review-input-container">
+        {/* 별점 선택 */}
+        <div className="star-rating">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <span
+              key={value}
+              className={value <= rating ? "star filled" : "star"}
+              onClick={() => handleStarClick(value)}
+            >
+              ★
+            </span>
+          ))}
+        </div>
+
+        {/* 텍스트 입력 */}
         <input
           type="text"
           placeholder="리뷰를 작성해주세요"
@@ -71,7 +113,21 @@ export default function ReviewPage() {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleAddReview()}
         />
-        <button onClick={handleAddReview} className="review-button">↑</button>
+
+        {/* 이미지 업로드 */}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleImageChange}
+          className="review-file"
+        />
+        {image && (
+          <img src={image.previewUrl} alt="미리보기" className="image-preview" />
+        )}
+
+        <button onClick={handleAddReview} className="review-button">
+          등록
+        </button>
       </div>
     </div>
   );

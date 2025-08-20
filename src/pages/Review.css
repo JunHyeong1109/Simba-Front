@@ -1,0 +1,125 @@
+/* src/pages/Review.css */
+
+.review-page {
+  display: flex;
+  flex-direction: column;
+  font-family: Arial, sans-serif;
+  background-color: #f9f9f9;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 0 40px;
+}
+
+/* 상단 프로필 아이콘 */
+.review-header {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 0;
+}
+
+.account-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #dce4ff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 22px;
+  cursor: pointer;
+  transition: 0.2s;
+  border: 1px solid #c0ccf5;
+}
+
+.account-icon:hover {
+  background: #c9d8ff;
+}
+
+/* 본문 콘텐츠 */
+.content {
+  display: flex;
+  justify-content: space-between;
+  flex: 1;
+  min-height: 60vh; /* 세로 좀 더 짧게 */
+}
+
+/* 공통 타이틀 */
+.section-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px; /* 타이틀 더 위로 */
+}
+
+/* 로딩/빈 데이터 */
+.loading,
+.empty {
+  font-size: 14px;
+  color: #777;
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* 왼쪽 리뷰 목록 */
+.review-section {
+  flex: 1;
+  margin-right: 40px;
+}
+
+.review-card {
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background-color: #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+}
+
+.store-name {
+  font-weight: bold;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.store-address {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.review-info {
+  font-size: 11px;
+  color: #777;
+  margin-bottom: 4px;
+}
+
+.review-text {
+  font-size: 13px;
+  color: #333;
+}
+
+/* 오른쪽 보상 목록 */
+.reward-section {
+  flex: 0.6;
+}
+
+.reward-card {
+  border: 1px solid #6fc276;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: #e6f6e9;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+}
+
+.reward-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+}
+
+.reward-valid {
+  font-size: 11px;
+  color: #555;
+  margin-top: 3px;
+}
