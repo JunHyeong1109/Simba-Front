@@ -1,0 +1,58 @@
+/* 접근성 숨김 */
+.auth .sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0 0 0 0)!important; white-space:nowrap!important; border:0!important; }
+
+/* 역할 선택 그룹 */
+.auth .role-group { margin-bottom:14px; border:none; padding:0; }
+.auth .role-legend { font-size:14px; font-weight:700; margin-bottom:8px; color:#374151; }
+
+.auth .role-seg { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.auth .role-seg .seg {
+  display:flex; flex-direction:column; gap:2px;
+  border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px;
+  background:#fff; cursor:pointer; transition:all .18s ease;
+  box-shadow:0 2px 8px rgba(0,0,0,.04);
+}
+.auth .role-seg .seg:hover { border-color:#d1d5db; transform: translateY(-1px); }
+.auth .role-seg .seg.active { border-color:#3b82f6; box-shadow:0 4px 14px rgba(59,130,246,.16); background:linear-gradient(180deg,#fff,#f8fbff); }
+.auth .role-seg .seg .seg-title { font-weight:700; font-size:14px; color:#111827; line-height:1.2; }
+.auth .role-seg .seg .seg-desc { font-size:12px; color:#6b7280; }
+.auth .role-group:disabled .seg { opacity:.7; cursor:not-allowed; transform:none; }
+
+/* 회원가입 기본 버튼 */
+.auth .signup-btn,
+.auth .register-btn {
+  background-color: #4e6cff;
+  color: #fff;
+  border: none;
+  padding: 10px;
+  width: 100%;          /* 한 줄 전체 쓰고 싶다면 100% */
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.auth .signup-btn:hover,
+.auth .register-btn:hover {
+  background-color: #3b53d9;
+}
+
+/* 보조 링크 버튼 */
+.auth .link-btn {
+  background-color: #aaa;
+  color: #fff;
+  border: none;
+  padding: 10px;
+  width: 100%;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+/* 비활성 상태도 눈에 띄게 */
+.auth .signup-btn:disabled,
+.auth .register-btn:disabled,
+.auth .link-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

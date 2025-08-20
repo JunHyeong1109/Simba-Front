@@ -1,0 +1,91 @@
+/* src/features/mission/CreateButton.css */
+
+/* 기본 버튼 */
+.re-btn {
+  --re-bg: #4e6cff;
+  --re-bg-hover: #3b53d9;
+  --re-bg-disabled: #8aa0ff;
+  --re-fg: #fff;
+  --re-radius: 12px;
+  --re-shadow: 0 6px 18px rgba(78, 108, 255, 0.25);
+
+  appearance: none;
+  border: 0;
+  border-radius: var(--re-radius);
+  background: var(--re-bg);
+  color: var(--re-fg);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .2px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 12px 18px;
+  min-height: 44px;
+  box-shadow: var(--re-shadow);
+  cursor: pointer;
+  box-sizing: border-box;
+
+  transition:
+    transform .08s ease,
+    background-color .15s ease,
+    box-shadow .15s ease,
+    opacity .15s ease;
+}
+
+/* 80% of viewport width */
+.re-btn--80vw { width: 80vw; max-width: 100%; }
+
+/* 가운데 정렬(선택) */
+.re-btn--center { display: block; margin-left: auto; margin-right: auto; }
+
+/* 사이즈 옵션 */
+.re-btn--lg { font-size: 15px; padding: 14px 20px; min-height: 48px; }
+.re-btn--sm { font-size: 13px; padding: 10px 14px; min-height: 38px; }
+
+/* 색상 옵션 */
+.re-btn--primary { background: var(--re-bg); }
+.re-btn--primary:hover { background: var(--re-bg-hover); }
+.re-btn--primary:active { transform: translateY(1px); }
+
+/* 포커스 링 */
+.re-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(78,108,255,0.18),
+    var(--re-shadow);
+}
+
+/* 비활성/로딩 */
+.re-btn[disabled],
+.re-btn[aria-busy="true"] {
+  opacity: .85;
+  cursor: not-allowed;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* 로딩 스피너 (텍스트는 그대로, 우측에 회전 아이콘 추가) */
+.re-btn[data-pending="true"]::after {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  animation: re-spin .8s linear infinite;
+}
+
+@keyframes re-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 다크배경 위 대비가 필요하면(선택) */
+@media (prefers-color-scheme: dark) {
+  .re-btn {
+    --re-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+}

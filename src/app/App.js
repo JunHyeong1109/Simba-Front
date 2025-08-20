@@ -1,4 +1,5 @@
 // src/app/App.jsx (위치에 맞게)
+import "../mocks"; //test
 import React, { useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import TopBar from "../features/topBar/TopBar"; // ← 경로 주의

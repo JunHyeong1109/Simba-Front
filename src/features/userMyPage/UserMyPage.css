@@ -1,0 +1,253 @@
+/* ---- Root ---- */
+.mypage-root {
+  --bg: #f7f7fb;
+  --card-bg: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --primary: #3b82f6;
+  --success: #10b981;
+  --shadow: 0 2px 10px rgba(0,0,0,0.06);
+
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 24px;
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+/* ---- Header ---- */
+.mypage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.mypage-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.mypage-subtitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.mypage-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mypage-user-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.mypage-user-name {
+  font-weight: 600;
+}
+
+.mypage-user-mail {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mypage-avatar {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--card-bg);
+}
+.mypage-avatar.sm {
+  width: 32px;
+  height: 32px;
+}
+
+/* ---- Main grid ---- */
+.mypage-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .mypage-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Section ---- */
+.mypage-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.mypage-section-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* ---- Lists & Empty ---- */
+.mypage-list {
+  display: grid;
+  gap: 12px;
+}
+
+.mypage-empty {
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  background: rgba(255,255,255,0.6);
+}
+
+/* ---- Card ---- */
+.mypage-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-bg);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+/* Skeleton placeholder */
+.mypage-skeleton {
+  height: 92px;
+  background: linear-gradient(100deg, #eee 40%, #f5f5f7 50%, #eee 60%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  border: none;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---- Store block (inside Review card) ---- */
+.mypage-store {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.mypage-store-thumb {
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #fafafa;
+}
+
+.mypage-store-info {
+  min-width: 0; /* ellipsis 위해 필요 */
+}
+
+.mypage-store-name {
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.mypage-store-addr {
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis; /* 너무 긴 주소는 한 줄 말줄임 */
+}
+
+.mypage-store-cat {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---- Review content ---- */
+.mypage-review {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.mypage-review-meta {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.mypage-review-author {
+  font-weight: 600;
+}
+
+.mypage-review-date {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mypage-review-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  word-break: break-word;     /* 긴 단어 줄바꿈 */
+  overflow-wrap: anywhere;    /* 어떤 경우든 줄바꿈 허용 */
+}
+
+/* ---- Reward ---- */
+.mypage-reward {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.mypage-reward-body {
+  min-width: 0;
+}
+
+.mypage-reward-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.mypage-reward-period {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---- Chips ---- */
+.mypage-chip {
+  --chip-bg: #e5e7eb;
+  --chip-color: #374151;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--chip-color);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mypage-chip.success {
+  --chip-bg: rgba(16, 185, 129, 0.18);
+  --chip-color: #047857;
+}

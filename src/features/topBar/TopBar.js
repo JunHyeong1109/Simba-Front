@@ -1,3 +1,4 @@
+// src/features/topbar/TopBar.js (경로는 프로젝트 구조에 맞게)
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./TopBar.css";
@@ -5,9 +6,9 @@ import "./TopBar.css";
 export default function TopBar({
   user = null,
   onLogout,
-  homeRoute = "/main",
+  homeRoute = "/",
   loginRoute = "/login",
-  myPageRoute = "/mypage",
+  myPageRoute = "/mypage", // 알 수 없는 역할/미설정 시 폴백
 }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -25,6 +26,20 @@ export default function TopBar({
   }, [open]);
 
   const initial = (user?.name || user?.email || "U").slice(0, 1).toUpperCase();
+
+  // 역할 기반 마이페이지 경로 결정
+  const resolveMyPageRoute = (u, fallback = myPageRoute) => {
+    const role = (u?.role || "").toString().toUpperCase();
+    if (role === "REVIEWER") return "/mypage1";
+    if (role === "OWNER") return "/mypage2";
+    return fallback;
+  };
+
+  const goMyPage = () => {
+    const target = resolveMyPageRoute(user);
+    setOpen(false);
+    navigate(target);
+  };
 
   return (
     <header className="topbar" role="banner">
@@ -72,10 +87,7 @@ export default function TopBar({
                   <button
                     className="menu-item"
                     role="menuitem"
-                    onClick={() => {
-                      setOpen(false);
-                      navigate(myPageRoute);
-                    }}
+                    onClick={goMyPage}
                   >
                     마이페이지
                   </button>
