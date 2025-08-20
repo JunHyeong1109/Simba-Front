@@ -1,9 +1,17 @@
 // src/api.js
 import axios from "axios";
 
-/** ===== 공통 BASE URL ===== */
-export const BASE_URL =
-  (process.env.REACT_APP_API_BASE_URL ?? "") || "/api";
+/** ===== BASE URL 결정 =====
+ * - 로컬(localhost/127.0.0.1): http://localhost:8080
+ * - 배포(그 외): 같은 도메인 사용("") → 예: https://itda.com/itda/...
+ * - .env가 있으면 REACT_APP_API_BASE_URL가 최우선
+ */
+const IS_LOCAL =
+  typeof window !== "undefined" &&
+  /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+
+const DEFAULT_BASE = IS_LOCAL ? "http://localhost:8080" : ""; // ← 여기 핵심
+export const BASE_URL = (process.env.REACT_APP_API_BASE_URL ?? DEFAULT_BASE);
 
 /** ===== axios 인스턴스 ===== */
 axios.defaults.withCredentials = true;
@@ -13,7 +21,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// (선택) 요청 인터셉터: plain object면 JSON 헤더 자동 지정
+// plain object면 JSON으로 보냄 (FormData/Blob은 그대로)
 api.interceptors.request.use((config) => {
   const isPlainObject =
     config.data &&
@@ -30,12 +38,16 @@ api.interceptors.request.use((config) => {
 export default api;
 
 /** ===== fetch 헬퍼 (credentials: 'include') ===== */
+const joinUrl = (base, path) => {
+  if (!base) return path.startsWith("/") ? path : `/${path}`;
+  return `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+};
+
 export const buildUrl = (path, params) => {
-  let base = BASE_URL;
-  let url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = joinUrl(BASE_URL, path);
   if (params && Object.keys(params).length) {
     const qs = new URLSearchParams(params).toString();
-    url += (url.includes("?") ? "&" : "?") + qs;
+    return `${url}${url.includes("?") ? "&" : "?"}${qs}`;
   }
   return url;
 };
