@@ -1,0 +1,58 @@
+.owner-container {
+  font-family: "Noto Sans KR", sans-serif;
+  background-color: #f9f9f9;
+  min-height: 100vh;
+}
+
+.owner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 25px;
+  border-bottom: 1px solid #ddd;
+  background-color: white;
+}
+
+.logo-text {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.owner-info {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.owner-text {
+  font-size: 15px;
+}
+
+.owner-main {
+  padding: 30px;
+}
+
+.menu-section {
+  margin-bottom: 30px;
+}
+
+.menu-section h3 {
+  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.menu-btn {
+  display: block;
+  margin: 5px 0;
+  padding: 10px 15px;
+  border: none;
+  background-color: #f0f0f0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.menu-btn:hover {
+  background-color: #e0e0e0;
+}
