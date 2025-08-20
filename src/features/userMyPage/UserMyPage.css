@@ -1,6 +1,6 @@
 /* ---- Root ---- */
 .mypage-root {
-  --bg: #f7f7fb;
+  --bg: #f9f9f9;
   --card-bg: #ffffff;
   --text: #1f2937;
   --muted: #6b7280;
@@ -11,7 +11,7 @@
 
   min-height: 100vh;
   background: var(--bg);
-  padding: 24px;
+  padding: 5px;
   color: var(--text);
   box-sizing: border-box;
 }
@@ -21,13 +21,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  padding: 15px 25px;
+  border-bottom: 1px solid #ddd;
+  background-color: white;
 }
 
-.mypage-title {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
+.logo-text {
+  font-size: 16px;
+  font-weight: bold;
 }
 
 .mypage-subtitle {
@@ -46,25 +47,31 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  line-height: 1.2;
 }
 
 .mypage-user-name {
   font-weight: 600;
+  font-size: 14px;
+  color: #111827;
 }
 
 .mypage-user-mail {
   font-size: 12px;
-  color: var(--muted);
+  color: #6b7280; /* muted */
 }
 
 .mypage-avatar {
   width: 36px;
   height: 36px;
-  border: 1px solid var(--border);
+  border: 1px solid #e5e7eb;
   border-radius: 999px;
   display: grid;
   place-items: center;
-  background: var(--card-bg);
+  background: #ffffff;
+  font-weight: 700;
+  color: #374151;
+  user-select: none;
 }
 .mypage-avatar.sm {
   width: 32px;
@@ -250,4 +257,45 @@
 .mypage-chip.success {
   --chip-bg: rgba(16, 185, 129, 0.18);
   --chip-color: #047857;
+}
+
+.mypage-tabs {
+  display: inline-flex;
+  gap: 8px;
+}
+.mypage-tab {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.mypage-tab.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59,130,246,.12);
+}
+
+/* --- 칩 색상 확장 --- */
+.mypage-chip.warn {
+  --chip-bg: rgba(245, 158, 11, 0.18);
+  --chip-color: #92400e;
+}
+.mypage-chip.muted {
+  --chip-bg: #eef2f7;
+  --chip-color: #6b7280;
+}
+
+/* --- 바우처 '사용 처리' 버튼 --- */
+.mypage-btn.use {
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.mypage-btn.use:hover {
+  opacity: 0.92;
 }

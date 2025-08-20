@@ -50,7 +50,6 @@ export default function TopBar({
           onClick={() => navigate(homeRoute)}
           aria-label="메인으로 이동"
         >
-          <img src="/logo192.png" alt="" className="brand-logo" />
           <span className="brand-text">Itda</span>
         </button>
 

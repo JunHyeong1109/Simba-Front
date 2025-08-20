@@ -1,8 +1,7 @@
-// src/app/App.jsx (위치에 맞게)
-import "../mocks"; //test
+// src/app/App.jsx
 import React, { useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
-import TopBar from "../features/topBar/TopBar"; // ← 경로 주의
+import TopBar from "../features/topBar/TopBar";
 import api from "../api";
 import "./AppShell.css";
 
@@ -10,16 +9,20 @@ export default function AppLayout() {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
-  // 앱 시작 시 내 프로필 불러오기 (쿠키 기반 세션 가정)
+  // 앱 시작 시 내 프로필 불러오기 (role 포함)
   useEffect(() => {
+    let alive = true;
     (async () => {
       try {
-        const { data } = await api.get("/itda/username"); 
-        setUser(data);
+        const { data } = await api.get("/itda/me"); // role 포함 권장
+        if (alive) setUser(data || null);
       } catch {
-        setUser(null);
+        if (alive) setUser(null);
       }
     })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // 로그아웃
@@ -28,17 +31,28 @@ export default function AppLayout() {
       await api.post("/itda/auth/logout");
     } finally {
       setUser(null);
-      navigate("/main"); // 메인으로
+      navigate("/", { replace: true }); // 루트(index=메인)로
     }
   };
 
+  // 역할 별 마이페이지 라우트
+  const myPageRoute =
+    (user?.role || "").toString().toUpperCase() === "OWNER"
+      ? "/mypage2"
+      : "/mypage1";
+
   return (
     <div className="app-shell">
-      {/* ✅ 로그인 상태/로그아웃 핸들러를 TopBar에 전달 */}
-      <TopBar user={user} onLogout={handleLogout} />
+      <TopBar
+        user={user}
+        onLogout={handleLogout}
+        homeRoute="/"
+        loginRoute="/login"
+        myPageRoute={myPageRoute}
+      />
       <main className="app-main">
-        <Outlet context={{ user, setUser }} /> 
-        {/* 필요 시 하위 라우트에서 setUser를 쓰도록 내림 */}
+        {/* 하위 라우트에서 user/setUser 사용 가능 */}
+        <Outlet context={{ user, setUser }} />
       </main>
     </div>
   );

@@ -1,3 +1,4 @@
+// src/features/eventMap/eventList/EventList.js
 import React, { useEffect, useState } from "react";
 import api from "../../../api"; // 프로젝트 구조에 맞게 경로 확인
 import "./EventList.css";
@@ -11,23 +12,55 @@ function EventList({
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
+  // 날짜 헬퍼 & 상태 판별
+  const toDate = (v) => {
+    if (!v) return null;
+    const d = new Date(v);
+    return isNaN(d) ? null : d;
+  };
+  const isExpired = (m, now = new Date()) => {
+    const end = toDate(m.endAt || m.endDate);
+    return !!(end && end < now);
+  };
+  const isScheduled = (m, now = new Date()) => {
+    const start = toDate(m.startAt || m.startDate);
+    return !!(start && start > now);
+  };
+  const isOngoing = (m, now = new Date()) => {
+    // 시작일이 미래가 아니고, 종료일이 지났지 않으면 진행중으로 간주
+    return !isScheduled(m, now) && !isExpired(m, now);
+  };
+
   useEffect(() => {
     let alive = true;
     (async () => {
       setLoading(true);
       setErr("");
       try {
+        const statusParam = (status ?? "").toString();
+        const statusUpper = statusParam.toUpperCase();
+
+        // 1) 서버 요청 URL 구성
         let url = "";
-        if (status === "joinable") url = "/itda/missions/joinable";
-        else if (storeId) url = `/itda/missions?storeId=${storeId}`;
-        else if (status) url = `/itda/missions?status=${status}`;
-        else url = "/itda/missions/joinable";
+        if (statusParam === "joinable") {
+          url = "/itda/missions/joinable";
+        } else if (storeId && statusParam) {
+          url = `/itda/missions?storeId=${storeId}&status=${encodeURIComponent(
+            statusUpper
+          )}`;
+        } else if (storeId) {
+          url = `/itda/missions?storeId=${storeId}`;
+        } else if (statusParam) {
+          url = `/itda/missions?status=${encodeURIComponent(statusUpper)}`;
+        } else {
+          url = "/itda/missions/joinable";
+        }
 
         const { data } = await api.get(url);
         const list = Array.isArray(data) ? data : data?.items || [];
         if (!alive) return;
 
-        // lat/lng 숫자화
+        // 2) 좌표 숫자화
         const normalized = list.map((m) => {
           const s = m.store || {};
           const toNum = (v) =>
@@ -46,7 +79,22 @@ function EventList({
           };
         });
 
-        setItems(normalized);
+        // 3) 클라이언트 측 필터 (서버 신뢰 + 보강)
+        const now = new Date();
+        let out = normalized;
+
+        if (statusParam === "joinable" || statusUpper === "ONGOING") {
+          out = normalized.filter((m) => isOngoing(m, now));
+        } else if (statusUpper === "SCHEDULED") {
+          out = normalized.filter((m) => isScheduled(m, now));
+        } else if (statusUpper === "ENDED") {
+          out = normalized.filter((m) => isExpired(m, now));
+        } else if (storeId && !statusParam) {
+          // 메인/매장 전용: status 미지정이면 만료 숨김
+          out = normalized.filter((m) => isOngoing(m, now));
+        }
+
+        setItems(out);
       } catch (e) {
         if (!alive) return;
         setErr(e?.response?.data?.message || "미션 목록을 불러오지 못했습니다.");
@@ -112,7 +160,9 @@ function EventList({
                 </div>
                 <div className="event-card-body">
                   <div className="event-card-title">{m.title || "미션"}</div>
-                  {storeName && <div className="event-card-store">{storeName}</div>}
+                  {storeName && (
+                    <div className="event-card-store">{storeName}</div>
+                  )}
                   {(start || end) && (
                     <div className="event-card-dates">
                       {fmtDate(start)} ~ {fmtDate(end)}

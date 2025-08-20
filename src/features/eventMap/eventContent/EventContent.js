@@ -1,8 +1,16 @@
-// src/features/eventMap/eventContent/EventContent.js
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate, useLocation, useOutletContext } from "react-router-dom";
+import api from "../../../api";
 import "./EventContent.css";
 
-export default function EventContent({ selected }) {
+export default function EventContent({ selected, loginRoute = "/login" }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const outletCtx = useOutletContext?.();
+  const authUser = outletCtx?.user || null;
+
+  const [checking, setChecking] = useState(false);
+
   if (!selected) {
     return (
       <div className="event-detail empty">
@@ -44,6 +52,14 @@ export default function EventContent({ selected }) {
   const lat = selected.lat ?? store.latitude ?? mission.latitude ?? null;
   const lng = selected.lng ?? store.longitude ?? mission.longitude ?? null;
 
+  // 가능한 키들에서 missionId 추출
+  const missionId =
+    mission.id ??
+    mission.missionId ??
+    selected.id ??
+    selected.missionId ??
+    null;
+
   const fmtDate = (d) => {
     if (!d) return "-";
     try {
@@ -51,6 +67,40 @@ export default function EventContent({ selected }) {
       if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
     } catch {}
     return String(d).slice(0, 10);
+  };
+
+  const goToReview = async () => {
+    if (!missionId || checking) {
+      if (!missionId) alert("미션 ID가 없어 리뷰 페이지로 이동할 수 없습니다.");
+      return;
+    }
+
+    const reviewPath = `/review?missionId=${encodeURIComponent(missionId)}`;
+
+    // 1) 클라이언트가 이미 '로그인 아님'이라고 아는 경우 즉시 로그인으로
+    if (!authUser) {
+      navigate(`${loginRoute}?next=${encodeURIComponent(reviewPath)}`);
+      return;
+    }
+
+    // 2) (선택) 서버 세션 확인 – 실패하면 로그인으로 보냄
+    try {
+      setChecking(true);
+      await api.get("/itda/me"); // 200이면 세션 유효
+      navigate(reviewPath, {
+        state: {
+          missionId,
+          title,
+          storeName,
+          storeAddr,
+          from: location.pathname + location.search,
+        },
+      });
+    } catch {
+      navigate(`${loginRoute}?next=${encodeURIComponent(reviewPath)}`);
+    } finally {
+      setChecking(false);
+    }
   };
 
   return (
@@ -101,6 +151,25 @@ export default function EventContent({ selected }) {
             <div className="value">{desc}</div>
           </div>
         )}
+
+        <div className="actions">
+          <button
+            type="button"
+            className="event-btn primary"
+            onClick={goToReview}
+            disabled={!missionId || checking}
+            aria-disabled={!missionId || checking}
+            title={
+              missionId
+                ? checking
+                  ? "확인 중…"
+                  : "이 미션에 대한 리뷰 작성"
+                : "미션 ID가 없어 이동할 수 없습니다"
+            }
+          >
+            {checking ? "확인 중…" : "리뷰 작성"}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -3,29 +3,36 @@ import axios from "axios";
 
 /** ===== 공통 BASE URL ===== */
 export const BASE_URL =
-  process.env.REACT_APP_API_BASE_URL /* 운영 분기용 */ || "/api";
+  (process.env.REACT_APP_API_BASE_URL ?? "") || "/api";
 
 /** ===== axios 인스턴스 ===== */
-// 모든 요청에 쿠키 포함
 axios.defaults.withCredentials = true;
 
 const api = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
-  // 기본 JSON. (⚠️ 파일 업로드 시 요청별로 multipart로 덮어쓰기)
-  headers: { "Content-Type": "application/json" },
+});
+
+// (선택) 요청 인터셉터: plain object면 JSON 헤더 자동 지정
+api.interceptors.request.use((config) => {
+  const isPlainObject =
+    config.data &&
+    typeof config.data === "object" &&
+    !(config.data instanceof FormData) &&
+    !(config.data instanceof Blob);
+
+  if (isPlainObject) {
+    config.headers = { ...(config.headers || {}), "Content-Type": "application/json" };
+  }
+  return config;
 });
 
 export default api;
 
-/** ===== fetch 헬퍼 (credentials: 'include') =====
- * - JSON 바디는 자동 stringify + Content-Type 지정
- * - FormData/Blob은 Content-Type 자동(브라우저에 맡김)
- * - ?params 쿼리도 깔끔히 붙임
- * - 응답 JSON/텍스트 자동 파싱 + 에러 throw
- */
-const buildUrl = (path, params) => {
-  let url = `${BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+/** ===== fetch 헬퍼 (credentials: 'include') ===== */
+export const buildUrl = (path, params) => {
+  let base = BASE_URL;
+  let url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
   if (params && Object.keys(params).length) {
     const qs = new URLSearchParams(params).toString();
     url += (url.includes("?") ? "&" : "?") + qs;
@@ -33,38 +40,35 @@ const buildUrl = (path, params) => {
   return url;
 };
 
-export async function apiFetch(path, { method = "GET", params, body, headers, ...rest } = {}) {
+export async function apiFetch(
+  path,
+  { method = "GET", params, body, headers, ...rest } = {}
+) {
   const init = {
     method,
-    credentials: "include", // ✅ 쿠키 포함
+    credentials: "include",
     headers: { ...(headers || {}) },
     ...rest,
   };
 
   if (body !== undefined) {
     if (body instanceof FormData || body instanceof Blob) {
-      // ❗️FormData/Blob은 Content-Type 지정 금지(브라우저가 boundary 세팅)
-      init.body = body;
+      init.body = body; // Content-Type 자동
     } else if (typeof body === "object") {
       init.body = JSON.stringify(body);
       if (!init.headers["Content-Type"]) {
         init.headers["Content-Type"] = "application/json";
       }
     } else {
-      init.body = body; // string 등
+      init.body = body;
     }
   }
 
   const res = await fetch(buildUrl(path, params), init);
 
-  // 응답 파싱(JSON 우선)
   const text = await res.text();
   let data;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
 
   if (!res.ok) {
     const err = new Error(`HTTP ${res.status}`);
@@ -75,9 +79,8 @@ export async function apiFetch(path, { method = "GET", params, body, headers, ..
   return data;
 }
 
-// 편의 메서드
-export const get  = (path, params, opt) => apiFetch(path, { method: "GET", params,   ...opt });
-export const post = (path, body,   opt) => apiFetch(path, { method: "POST", body,     ...opt });
-export const put  = (path, body,   opt) => apiFetch(path, { method: "PUT",  body,     ...opt });
-export const patch= (path, body,   opt) => apiFetch(path, { method: "PATCH",body,     ...opt });
-export const del  = (path, params, opt) => apiFetch(path, { method: "DELETE",params,  ...opt });
+export const get   = (p, params, opt) => apiFetch(p, { method: "GET", params, ...opt });
+export const post  = (p, body,   opt) => apiFetch(p, { method: "POST", body,   ...opt });
+export const put   = (p, body,   opt) => apiFetch(p, { method: "PUT",  body,   ...opt });
+export const patch = (p, body,   opt) => apiFetch(p, { method: "PATCH",body,   ...opt });
+export const del   = (p, params, opt) => apiFetch(p, { method: "DELETE", params, ...opt });

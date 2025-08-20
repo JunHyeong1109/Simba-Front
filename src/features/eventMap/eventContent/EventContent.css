@@ -42,3 +42,42 @@
 @media (max-width: 900px) {
   .event-detail { grid-template-columns: 1fr; }
 }
+
+/* Actions row & button (리뷰 작성 버튼용) */
+.event-detail .actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.event-btn {
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  transition: background-color .15s ease, opacity .15s ease, transform .06s ease;
+}
+
+.event-btn.primary {
+  background: #4e6cff;
+  color: #fff;
+}
+
+.event-btn.primary:hover { background: #3b53d9; }
+
+.event-btn:active { transform: translateY(1px); }
+
+.event-btn[disabled],
+.event-btn[aria-disabled="true"] {
+  opacity: .6;
+  cursor: not-allowed;
+}

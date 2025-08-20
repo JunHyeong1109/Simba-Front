@@ -1,3 +1,4 @@
+/* 기존 스타일 */
 .owner-container {
   font-family: "Noto Sans KR", sans-serif;
   background-color: #f9f9f9;
@@ -18,12 +19,12 @@
   font-weight: bold;
 }
 
+/* (기존) 예전 우측 영역 스타일 — 이제는 사용 안 해도 무방 */
 .owner-info {
   display: flex;
   align-items: center;
   font-weight: 500;
 }
-
 .owner-text {
   font-size: 15px;
 }
@@ -55,4 +56,44 @@
 
 .menu-btn:hover {
   background-color: #e0e0e0;
+}
+
+/* -----------------------------
+   ⬇️ 추가: 우측 프로필(간략 정보) 레이아웃
+   ----------------------------- */
+.owner-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.owner-user-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.owner-user-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111827;
+}
+
+.owner-user-mail {
+  font-size: 12px;
+  color: #6b7280; /* muted */
+}
+
+.owner-avatar {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  font-weight: 700;
+  color: #374151;
+  user-select: none;
 }
