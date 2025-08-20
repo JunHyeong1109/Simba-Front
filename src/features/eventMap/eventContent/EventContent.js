@@ -75,7 +75,7 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
       return;
     }
 
-    const reviewPath = `/review?missionId=${encodeURIComponent(missionId)}`;
+    const reviewPath = `/itda/review?missionId=${encodeURIComponent(missionId)}`;
 
     // 1) 클라이언트가 이미 '로그인 아님'이라고 아는 경우 즉시 로그인으로
     if (!authUser) {

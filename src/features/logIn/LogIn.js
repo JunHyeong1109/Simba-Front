@@ -24,7 +24,7 @@ export default function Login() {
       setPending(true);
 
       // 백엔드가 username/password를 받는다고 가정 (email 사용 시 필드명만 바꿔주면 됨)
-      await api.post("/auth/login", {
+      await api.post("/itda/auth/login", {
         username: account,      // ← 서버가 'username' 대신 'account'를 받으면 키를 맞춰주세요.
         password,
       });

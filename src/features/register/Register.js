@@ -58,7 +58,7 @@ export default function Register() {
     try {
       setPending(true);
 
-      await api.post("/auth/register", {
+      await api.post("/itda/auth/register", {
         username: username.trim(),
         password: password.trim(),
         email: email.trim(),
