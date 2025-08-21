@@ -6,7 +6,6 @@ import api from "../../api";
 const ENDPOINTS = {
   myStores: ["/itda/me/stores", "/itda/stores"],
   storeReviews: () => `/itda/reviews`,
-  storeSummary: (storeId) => `/itda/stores/${storeId}/summary`,
   // ✅ 승인/거부: 쿼리스트링으로 전달
   reviewApprove: (id) => [
     { method: "patch", url: `/itda/reviews/${id}?status=APPROVED` },
@@ -64,8 +63,8 @@ export default function ReviewApprovalPage() {
   const [reviewErr, setReviewErr] = useState("");
   const [statusFilter, setStatusFilter] = useState("PENDING"); // "ALL" | "PENDING" | "APPROVED"(=완료)
 
+  // ✅ 요약은 /itda/reviews 응답 기반으로 직접 계산/반영
   const [summary, setSummary] = useState(null);
-  const [loadingSummary, setLoadingSummary] = useState(false);
 
   // ───────── 보상/검수 모달 상태
   const [rewardOpen, setRewardOpen] = useState(false);
@@ -111,24 +110,44 @@ export default function ReviewApprovalPage() {
     return () => { alive = false; };
   }, [user?.id]);
 
-  // ───────── 리뷰 불러오기
+  // ───────── 리뷰 불러오기 (+ 요약 계산)
   const normalizeReview = (r) => {
     let st = (r.status || "").toString().toUpperCase();
     if (!st) {
       const ok = r.approved === true || !!r.approvedAt;
       st = ok ? "APPROVED" : "PENDING";
     }
+    const ratingRaw = r.rating ?? r.stars ?? 0;
+    const ratingNum = typeof ratingRaw === "number" ? ratingRaw : Number(ratingRaw) || 0;
+
     return {
       id: r.id ?? r.reviewId,
       userId: r.userId ?? r.reviewerId ?? r.writerId ?? r.user?.id ?? r.accountId,
       userName: r.userName ?? r.nickname ?? r.username ?? r.user?.name ?? "사용자",
-      rating: r.rating ?? r.stars ?? 0,
+      rating: ratingNum,
       text: r.text ?? r.content ?? "",
       date: r.date ?? r.createdAt ?? r.created_at ?? "",
       images: r.images ?? r.photos ?? [],
       status: st, // "PENDING" | "APPROVED" | "REJECTED"
       rewardStart: r.rewardStart,
       rewardEnd: r.rewardEnd,
+    };
+  };
+
+  const computeSummary = (rawData, list) => {
+    // 백엔드가 집계값을 실어주는 경우 우선 사용
+    const fromApiTotal = rawData?.total ?? rawData?.count;
+    const fromApiAvg = rawData?.avgRating ?? rawData?.averageRating ?? rawData?.avg;
+
+    const total = typeof fromApiTotal === "number" ? fromApiTotal : list.length;
+    const avg =
+      typeof fromApiAvg === "number"
+        ? fromApiAvg
+        : (list.reduce((s, r) => s + (Number(r.rating) || 0), 0) / (list.length || 1));
+
+    return {
+      total,
+      avgRating: Math.round((avg || 0) * 10) / 10, // 소수점 1자리
     };
   };
 
@@ -143,8 +162,12 @@ export default function ReviewApprovalPage() {
       const list = Array.isArray(data) ? data : data?.items || [];
       const normalized = list.map(normalizeReview);
       setReviews(normalized);
+
+      // ✅ 리뷰 API 기반 요약 계산/반영
+      setSummary(computeSummary(data, normalized));
     } catch (e) {
       setReviews([]);
+      setSummary({ total: 0, avgRating: 0 });
       setReviewErr(e?.response?.data?.message || "리뷰를 불러오지 못했습니다.");
     } finally {
       setLoadingReviews(false);
@@ -154,25 +177,6 @@ export default function ReviewApprovalPage() {
   useEffect(() => {
     if (!selectedStoreId) return;
     fetchReviews(selectedStoreId);
-  }, [selectedStoreId]);
-
-  // ───────── 요약 불러오기
-  useEffect(() => {
-    if (!selectedStoreId) return;
-    let alive = true;
-    (async () => {
-      try {
-        setLoadingSummary(true);
-        const { data } = await api.get(ENDPOINTS.storeSummary(selectedStoreId));
-        if (!alive) return;
-        setSummary(data || null);
-      } catch {
-        setSummary(null);
-      } finally {
-        if (alive) setLoadingSummary(false);
-      }
-    })();
-    return () => { alive = false; };
   }, [selectedStoreId]);
 
   // ───────── 필터 계산
@@ -221,6 +225,7 @@ export default function ReviewApprovalPage() {
             r.id === rewardTarget.id ? { ...r, status: "REJECTED" } : r
           )
         );
+        // 요약(평균/갯수)은 상태 변경과 무관하므로 그대로 둠
 
         setRewardOpen(false);
         setRewardTarget(null);
@@ -283,6 +288,8 @@ export default function ReviewApprovalPage() {
             : r
         )
       );
+      // 평균/총 건수는 변화 없음(동일 리뷰 수, 별점은 고정)
+
       setRewardOpen(false);
       setRewardTarget(null);
       setStatusFilter("APPROVED");
@@ -343,7 +350,7 @@ export default function ReviewApprovalPage() {
 
       {!loadingStores && !storeErr && selectedStoreId && (
         <section className="rvap-summary">
-          {loadingSummary ? (
+          {loadingReviews ? (
             <div className="rvap-chip muted">요약 불러오는 중…</div>
           ) : summary ? (
             <div className="rvap-summary-grid">
@@ -391,8 +398,8 @@ export default function ReviewApprovalPage() {
                     <div className="rvap-user">{r.userName}</div>
                     <div className="rvap-date">{r.date}</div>
                     <div className="rvap-stars">
-                      {"★".repeat(r.rating || 0)}
-                      {"☆".repeat(Math.max(0, 5 - (r.rating || 0)))}
+                      {"★".repeat(Math.max(0, Math.floor(r.rating || 0)))}
+                      {"☆".repeat(Math.max(0, 5 - Math.floor(r.rating || 0)))}
                     </div>
                   </div>
                 </div>
