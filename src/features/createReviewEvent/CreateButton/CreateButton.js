@@ -1,4 +1,3 @@
-// src/features/mission/CreateButton.js
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api";
@@ -8,18 +7,17 @@ import "./CreateButton.css";
 const JSON_HDR = { headers: { "Content-Type": "application/json" }, withCredentials: true };
 
 const pad2 = (n) => String(n).padStart(2, "0");
-// yyyy-MM-dd HH:mm (초 제거, 로컬 기준)
+// yyyy-MM-dd HH:mm (로컬, 초 제거)
 const toLocalMinuteSQL = (d) =>
   d instanceof Date && !isNaN(d?.valueOf())
     ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
     : null;
 
-// 문자열 → Date(local) 파싱 (yyyy-MM-dd HH:mm[:ss], yyyy/MM/dd HH:mm[:ss], ISO 일부)
+// 문자열 → Date(local) (yyyy-MM-dd HH:mm[:ss], yyyy/MM/dd HH:mm[:ss], ISO 일부 허용)
 const parseToLocalDate = (v) => {
   if (!v) return null;
   if (v instanceof Date) return isNaN(v) ? null : v;
   let s = String(v).trim();
-  // 슬래시도 허용
   s = s.replace(/\//g, "-");
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (m) {
@@ -38,6 +36,16 @@ const toMinuteString = (v) => {
 const readHidden = (id) => {
   const el = document.getElementById(id);
   return el ? String(el.value || "").trim() : "";
+};
+
+// ✅ 숫자 정규화: 빈값/NaN/음수 → null, 정수로 고정
+const toIntOrNull = (v) => {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  if (s === "") return null;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.floor(n));
 };
 
 export default function CreateButton({ collect, posterFile }) {
@@ -59,25 +67,19 @@ export default function CreateButton({ collect, posterFile }) {
     if (!title) return alert("제목을 입력하세요.");
     if (!storeId) return alert("매장을 선택하세요.");
 
-    // ✅ 날짜 읽기: collect() → 신 hidden(event-*-at) → 구 hidden(event-*)
+    // 날짜: collect → hidden(-at → 구 id) 순서로 확보
     const hiddenStart = readHidden("event-start-at") || readHidden("event-start");
     const hiddenEnd   = readHidden("event-end-at")   || readHidden("event-end");
-
-    const startAt =
-      toMinuteString(data.startAt) ||
-      toMinuteString(hiddenStart);
-
-    const endAt =
-      toMinuteString(data.endAt) ||
-      toMinuteString(hiddenEnd);
-
-    // 디버그가 필요하면 잠시 활성화
-    // console.log({ dataStart: data.startAt, hiddenStart, dataEnd: data.endAt, hiddenEnd, startAt, endAt });
-
+    const startAt = toMinuteString(data.startAt) || toMinuteString(hiddenStart);
+    const endAt   = toMinuteString(data.endAt)   || toMinuteString(hiddenEnd);
     if (!startAt || !endAt) {
       alert("시작/종료 일시를 선택하세요.");
       return;
     }
+
+    // ✅ 리워드 카운트: collect 우선, 없으면 hidden에서 백업
+    const rewardCountVal =
+      toIntOrNull(data.rewardCount) ?? toIntOrNull(readHidden("event-reward-count"));
 
     try {
       setPending(true);
@@ -90,8 +92,10 @@ export default function CreateButton({ collect, posterFile }) {
         storeId,
         lat: data.lat ?? null,
         lng: data.lng ?? null,
-        rewardCount: data.rewardCount ?? null,
+        // address는 계약상 미전송
       };
+      // 숫자일 때만 포함 (원하면 null로 항상 보낼 수도 있음)
+      if (rewardCountVal !== null) payload.rewardCount = rewardCountVal;
 
       await api.post("/itda/missions", payload, JSON_HDR);
 
