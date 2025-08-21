@@ -11,7 +11,8 @@
 
 .addr-modal-container {
   width: min(900px, 96vw);
-  height: min(680px, 92vh);
+  /* 뷰포트 변화(툴바 등)에 안전한 dvh 사용 + 내부 스크롤 구조 */
+  max-height: min(680px, calc(100dvh - 32px)); /* 16px 패딩 * 2 보정 */
   background: #fff;
   border-radius: 12px;
   display: grid;
@@ -30,7 +31,9 @@
   grid-template-columns: 1fr;
   gap: 12px;
   padding: 16px;
-  position: relative; /* 우편번호 임베드 레이어 위치 기준 */
+  position: relative;      /* 우편번호 레이어 기준 */
+  min-height: 0;           /* grid 자식이 스크롤 되려면 필요 */
+  overflow: auto;          /* 본문만 스크롤 */
 }
 
 .addr-search-row {
@@ -75,16 +78,17 @@
 
 .addr-map {
   width: 100%;
-  height: 420px;
+  /* 작은 화면에서 잘리지 않게 반응형 높이 */
+  height: clamp(240px, 40dvh, 420px);
   border-radius: 8px;
   border: 1px solid #eee;
   overflow: hidden;
 }
 
-/* 우편번호 임베드 레이어: 지도 위를 임시로 가린다 */
+/* 우편번호 임베드 레이어: 모달 본문을 덮음(헤더/푸터는 가리지 않음) */
 .addr-postcode-layer {
   position: absolute;
-  inset: 72px 16px 128px 16px; /* 헤더/풋터와 검색줄을 피해 위치 */
+  inset: 0;
   background: #fff;
   border: 1px solid #eee;
   border-radius: 8px;
@@ -126,6 +130,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  background: #fff; /* 스크롤 시 하단 버튼 가독성 */
 }
 
 .addr-error {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./AddrPickerModalStyle.css";
 
 export default function AddrPickerModal({
@@ -24,7 +25,6 @@ export default function AddrPickerModal({
 
   const FALLBACK = { lat: 37.5665, lng: 126.9780 }; // 서울시청
 
-  // 현재 위치 가져오기 (허용 시 그 좌표로 시작)
   const getCurrentPosition = () =>
     new Promise((resolve) => {
       if (!navigator.geolocation) return resolve(FALLBACK);
@@ -36,7 +36,7 @@ export default function AddrPickerModal({
     });
 
   const initMap = async () => {
-    if (!window.kakao.maps) {
+    if (!window.kakao?.maps) {
       setError("Kakao Maps SDK가 로드되지 않았습니다. index.html을 확인하세요.");
       return;
     }
@@ -59,17 +59,14 @@ export default function AddrPickerModal({
 
     geocoderRef.current = new kakao.maps.services.Geocoder();
 
-    // 초기 좌표 상태 + 역지오코딩으로 주소 반영
     setCoords(initial);
     reverseGeocode(initial);
 
-    // 모달 렌더 후 레이아웃 보정
     setTimeout(() => {
       map.relayout();
       map.setCenter(marker.getPosition());
     }, 0);
 
-    // 마커 드래그 종료 시 좌표/주소 업데이트
     kakao.maps.event.addListener(marker, "dragend", () => {
       const pos = marker.getPosition();
       const latLng = { lat: pos.getLat(), lng: pos.getLng() };
@@ -81,12 +78,35 @@ export default function AddrPickerModal({
 
   useEffect(() => {
     if (!open) return;
-    // 초기화
     setSearchText("");
-    // 지도 만들기
     initMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // 바디 스크롤 잠금 + ESC 닫기
+  useEffect(() => {
+    if (!open) return;
+    const body = document.body;
+    const y = window.scrollY;
+    body.style.position = "fixed";
+    body.style.top = `-${y}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKey);
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      window.scrollTo(0, y);
+    };
+  }, [open, onClose]);
 
   const reverseGeocode = ({ lat, lng }) => {
     const geocoder = geocoderRef.current;
@@ -128,7 +148,6 @@ export default function AddrPickerModal({
     postcodeLayerRef.current.style.display = "block";
 
     const layer = document.getElementById("addr-postcode-embed");
-    // 기존 iframe 제거
     layer.innerHTML = "";
 
     const postcode = new window.daum.Postcode({
@@ -138,9 +157,6 @@ export default function AddrPickerModal({
         setSearchText(selected);
         searchAddress(selected);
         closePostcodeEmbed();
-      },
-      onclose: () => {
-        // 사용자가 닫기 버튼을 누른 경우
       },
       width: "100%",
       height: "100%",
@@ -157,7 +173,7 @@ export default function AddrPickerModal({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       className="addr-modal-overlay"
@@ -165,7 +181,13 @@ export default function AddrPickerModal({
         if (e.target === overlayRef.current) onClose?.();
       }}
     >
-      <div className="addr-modal-container" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="addr-modal-container"
+        role="dialog"
+        aria-modal="true"
+        aria-label="주소 선택"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="addr-modal-header">
           <strong>주소 선택</strong>
         </div>
@@ -173,7 +195,6 @@ export default function AddrPickerModal({
         <div className="addr-modal-body">
           {error && <div className="addr-error">{error}</div>}
 
-          {/* 검색줄 (옵션) */}
           <div className="addr-search-row">
             <input
               type="text"
@@ -193,10 +214,8 @@ export default function AddrPickerModal({
             </button>
           </div>
 
-          {/* 지도 */}
           <div ref={mapElRef} className="addr-map" />
 
-          {/* 임베드 우편번호 레이어 (지도를 가리는 얇은 오버레이) */}
           <div ref={postcodeLayerRef} className="addr-postcode-layer" style={{ display: "none" }}>
             <div className="addr-postcode-header">
               <span>우편번호 검색</span>
@@ -207,7 +226,6 @@ export default function AddrPickerModal({
             <div id="addr-postcode-embed" className="addr-postcode-embed" />
           </div>
 
-          {/* 선택 정보 표시 */}
           <div className="addr-info-row">
             <div>
               <div className="addr-info-title">도로명</div>
@@ -220,7 +238,7 @@ export default function AddrPickerModal({
             <div>
               <div className="addr-info-title">좌표</div>
               <div>
-                {coords.lat && coords.lng ? (
+                {coords.lat != null && coords.lng != null ? (
                   <>
                     {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
                   </>
@@ -248,12 +266,13 @@ export default function AddrPickerModal({
                 longitude: coords.lng,
               })
             }
-            disabled={!addr || !coords.lat || !coords.lng}
+            disabled={!addr || coords.lat == null || coords.lng == null}
           >
             확인
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
