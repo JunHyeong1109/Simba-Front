@@ -26,21 +26,14 @@ const catLabel = (c) => {
   return map[c] || c || "-";
 };
 
-/** ✅ 백엔드 응답을 화면용 공통 스키마로 정규화 */
+/** ✅ 백엔드 응답을 화면용 공통 스키마로 정규화 (ownerName 제거) */
 const normalizeStore = (raw = {}) => {
-  // id
   const id =
     raw.id ?? raw.storeId ?? raw.storeID ?? raw._id ?? null;
 
-  // name
   const name =
     raw.name ?? raw.storeName ?? raw.title ?? raw.shopName ?? "-";
 
-  // ownerName
-  const ownerName =
-    raw.ownerName ?? raw.bossName ?? raw.owner ?? raw.contactName ?? raw.owner_full_name ?? "-";
-
-  // businessNumber
   const businessNumber =
     raw.businessNumber ??
     raw.bizNo ??
@@ -50,7 +43,6 @@ const normalizeStore = (raw = {}) => {
     raw.business_number ??
     "-";
 
-  // address (도로명/지번/합쳐진 주소 중 하나)
   const address =
     raw.address ??
     raw.roadAddress ??
@@ -60,11 +52,9 @@ const normalizeStore = (raw = {}) => {
     raw.fullAddress ??
     "-";
 
-  // category
   const category =
     raw.category ?? raw.categoryCode ?? raw.type ?? raw.storeType ?? null;
 
-  // latitude / longitude
   const latitude = toNum(
     raw.latitude ?? raw.lat ?? raw.y ?? raw.geoLat ?? raw.location?.lat
   );
@@ -75,13 +65,11 @@ const normalizeStore = (raw = {}) => {
   return {
     id,
     name,
-    ownerName,
     businessNumber,
     address,
     category,
     latitude,
     longitude,
-    // 원본이 필요하면 raw도 유지 가능
     __raw: raw,
   };
 };
@@ -112,7 +100,6 @@ export default function ManageShop() {
         const { data } = await api.get("/itda/stores");
         const list = Array.isArray(data) ? data : data?.items || [];
 
-        // ✅ 각 항목을 정규화
         const normalized = list.map((item) => normalizeStore(item));
 
         if (!alive) return;
@@ -134,7 +121,6 @@ export default function ManageShop() {
   };
 
   const goEdit = (store) => {
-    // ✅ 정규화된 데이터 통째로 넘김 → Inner.js에서 state 활용 가능
     navigate(`/edit/${store.id}`, { state: store });
   };
 
@@ -224,14 +210,7 @@ export default function ManageShop() {
               )}
             </div>
 
-            <div className="shop-meta" style={{ display: "flex", gap: 8, fontSize: 14, margin: "4px 0" }}>
-              <span className="label" style={{ width: 88, color: "#777", flex: "0 0 88px" }}>
-                대표명
-              </span>
-              <span className="value" style={{ color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {s.ownerName || "-"}
-              </span>
-            </div>
+            {/* 대표명 섹션 제거됨 */}
 
             <div className="shop-meta" style={{ display: "flex", gap: 8, fontSize: 14, margin: "4px 0" }}>
               <span className="label" style={{ width: 88, color: "#777", flex: "0 0 88px" }}>

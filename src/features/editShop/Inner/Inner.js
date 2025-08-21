@@ -1,14 +1,17 @@
 // src/app/features/editShop/Inner.js
 import { useEffect, useState } from "react";
-import { useLocation, useParams, useOutletContext } from "react-router-dom";
+import { useLocation, useParams, useOutletContext, useNavigate } from "react-router-dom";
 import "./InnerStyle.css";
 import api from "../../../api";
 import AddrPickerModal from "./AddrPickerModal";
+
+const MANAGE_SHOP_PATH = "/manage"; // ✅ 필요 시 프로젝트 경로에 맞게 수정
 
 function Inner() {
   // 🔎 id를 여러 경로에서 방어적으로 추출
   const params = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const paramId = params?.id; // /edit/:id
   const queryId = new URLSearchParams(location.search).get("id"); // /edit?id=10
@@ -21,7 +24,7 @@ function Inner() {
   const isEdit = !!id;
 
   // 🔐 로그인 유저 (AppLayout에서 제공되는 컨텍스트 사용)
-  const { user } = useOutletContext?.() || {};
+  const { user } = useOutletContext() || {};
   const loginDisplayName =
     user?.name || user?.nickname || user?.username || user?.displayName || "";
 
@@ -132,7 +135,7 @@ function Inner() {
       return;
     }
 
-    
+    // 서버에 대표명은 전송하지 않음 (로그인 사용자 기준으로 백엔드가 채움)
     const payload = {
       name: shopName.trim(),
       category: Number(selectValue),
@@ -153,14 +156,17 @@ function Inner() {
         (isEdit ? "수정이 완료되었습니다." : "등록이 완료되었습니다.");
       setMessage({ type: "success", text: okMsg });
 
-      if (!isEdit) {
-        setShopName("");
-        setShopNum("");
-        setAddr("");
-        setSelectValue("");
-        setLatLng({ lat: null, lng: null });
-        // 등록 후에도 화면 표시용 대표명은 로그인 값 유지
-      }
+      // ✅ 성공 시 목록(ManageShop)으로 이동
+      navigate(MANAGE_SHOP_PATH, { replace: true });
+
+      // (필요 시, 이동 없이 폼 초기화만 원한다면 아래를 사용하고 navigate는 제거)
+      // if (!isEdit) {
+      //   setShopName("");
+      //   setShopNum("");
+      //   setAddr("");
+      //   setSelectValue("");
+      //   setLatLng({ lat: null, lng: null });
+      // }
     } catch (err) {
       const msg =
         err?.response?.data?.message ||
@@ -212,21 +218,6 @@ function Inner() {
                 </option>
               ))}
             </select>
-          </div>
-
-          {/* 👇 대표명: 로그인 기준 읽기 전용 표시(전송/검증 없음) */}
-          <div>
-            <h2>대표명</h2>
-            <input
-              className="input"
-              type="text"
-              value={ownerNameDisplay || ""}
-              readOnly
-              aria-readonly="true"
-            />
-            <small style={{ color: "#666" }}>
-              로그인한 계정 정보 기준으로 자동 설정됩니다.
-            </small>
           </div>
 
           <div>
