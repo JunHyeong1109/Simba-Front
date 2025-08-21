@@ -3,7 +3,7 @@ import "./SelectStyle.css";
 import api from "../../../api"; // 경로는 실제 구조에 맞게
 
 function SelectShop({ onSelect }) {
-  const [selectedId, setSelectedId] = useState(""); // "" | number
+  const [selectedId, setSelectedId] = useState(""); // "" | string
   const [stores, setStores] = useState([]);         // [{id, name, latitude, longitude, ...}]
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -16,11 +16,39 @@ function SelectShop({ onSelect }) {
       try {
         const { data } = await api.get("/itda/me/stores");
         const list = Array.isArray(data) ? data : data?.items || [];
-        const normalized = list.map((s) => ({
-          ...s,
-          latitude: typeof s.latitude === "string" ? Number(s.latitude) : s.latitude,
-          longitude: typeof s.longitude === "string" ? Number(s.longitude) : s.longitude,
-        }));
+
+        // ✅ 서버 응답 필드명이 제각각일 수 있으므로 여기서 통일
+        const normalized = list.map((raw) => {
+          const id =
+            raw?.id ??
+            raw?.storeId ??
+            raw?.store?.id;
+
+          const name =
+            raw?.name ??
+            raw?.storeName ??
+            raw?.store?.name ??
+            raw?.shopName ??
+            raw?.title ??
+            (id != null ? `매장#${id}` : "이름 없음");
+
+          // 위도/경도 보강 (문자열이면 숫자로, 대체 키도 고려)
+          const latRaw = raw?.latitude ?? raw?.lat ?? raw?.store?.latitude;
+          const lngRaw = raw?.longitude ?? raw?.lng ?? raw?.store?.longitude;
+          const latitude =
+            typeof latRaw === "string" ? Number(latRaw) : latRaw;
+          const longitude =
+            typeof lngRaw === "string" ? Number(lngRaw) : lngRaw;
+
+          return {
+            ...raw,
+            id,
+            name,
+            latitude,
+            longitude,
+          };
+        });
+
         if (mounted) setStores(normalized);
       } catch (e) {
         if (mounted) {
@@ -41,20 +69,20 @@ function SelectShop({ onSelect }) {
     [stores, selectedId]
   );
 
-  // ✅ 선택 시 hidden input & 콜백 세팅 (store-id 추가/초기화)
+  // ✅ 선택 시 hidden input & 콜백 세팅
   useEffect(() => {
-    const storeIdInput = document.getElementById("event-store-id"); // ✅ 추가
+    const storeIdInput = document.getElementById("event-store-id");
     const shopInput = document.getElementById("event-shop");
     const latInput = document.getElementById("event-lat");
     const lngInput = document.getElementById("event-lng");
-    const addrInput = document.getElementById("event-address"); // 주소는 현재 없음
+    const addrInput = document.getElementById("event-address");
 
     if (selectedStore) {
-      storeIdInput && (storeIdInput.value = String(selectedStore.id));       // ✅ 추가
+      storeIdInput && (storeIdInput.value = String(selectedStore.id));
       shopInput && (shopInput.value = selectedStore.name ?? "");
       latInput && (latInput.value = selectedStore.latitude ?? "");
       lngInput && (lngInput.value = selectedStore.longitude ?? "");
-      addrInput && (addrInput.value = ""); // 주소 없음 → 공백
+      addrInput && (addrInput.value = "");
 
       typeof onSelect === "function" &&
         onSelect({
@@ -66,8 +94,7 @@ function SelectShop({ onSelect }) {
           description: selectedStore.description,
         });
     } else {
-      // 선택 해제/초기 상태
-      storeIdInput && (storeIdInput.value = "");                             // ✅ 추가
+      storeIdInput && (storeIdInput.value = "");
       shopInput && (shopInput.value = "");
       latInput && (latInput.value = "");
       lngInput && (lngInput.value = "");
@@ -78,7 +105,7 @@ function SelectShop({ onSelect }) {
   const hasStores = stores.length > 0;
 
   const handleChange = (e) => {
-    setSelectedId(e.target.value); // 문자열로 유지(숫자 변환은 서버로 보낼 때 처리해도 OK)
+    setSelectedId(e.target.value); // 문자열로 관리
   };
 
   return (
@@ -111,8 +138,8 @@ function SelectShop({ onSelect }) {
 
         {!loading && !error && hasStores &&
           stores.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
+            <option key={String(s.id)} value={String(s.id)}>
+              {s.name /* ← 정규화된 이름 */}
             </option>
           ))}
       </select>
