@@ -129,20 +129,13 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
         </div>
 
         <div className="row">
-          <span className="label">매장</span>
+          <span className="label">매장명</span>
           <span className="value">{storeName}</span>
         </div>
 
         <div className="row">
           <span className="label">주소</span>
           <span className="value">{storeAddr}</span>
-        </div>
-
-        <div className="row">
-          <span className="label">좌표</span>
-          <span className="value">
-            {lat != null && lng != null ? `${lat}, ${lng}` : "-"}
-          </span>
         </div>
 
         {desc && (

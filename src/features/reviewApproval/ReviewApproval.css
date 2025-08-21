@@ -82,6 +82,7 @@
   padding: 14px;
   display: grid;
   gap: 10px;
+  transition: box-shadow .15s ease, transform .06s ease; /* for hover anim */
 }
 
 .rvap-card.rvap-skeleton {
@@ -131,6 +132,17 @@
 .rvap-btn.gift { background: var(--primary); color: #fff; border-color: var(--primary); }
 .rvap-btn.ghost { background: #fff; }
 
+/* 비활성화 버튼(레이아웃 유지 + 클릭 차단) */
+.rvap-btn:disabled,
+.rvap-btn[disabled] {
+  opacity: .55;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #fff;
+  color: var(--muted);
+  border-color: var(--border);
+}
+
 .rvap-modal-backdrop {
   position: fixed; inset: 0;
   background: rgba(0,0,0,.35);
@@ -155,5 +167,25 @@
   border-radius: 10px;
   padding: 8px 10px;
 }
+
+/* ⬇️ 입력 비활성화 시 시각적 상태 */
+.rvap-input[disabled],
+.rvap-input[readonly][disabled] {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
 .rvap-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (max-width: 640px) { .rvap-grid2 { grid-template-columns: 1fr; } }
+
+/* 카드 전체 클릭 UX (보류 상태 전용) */
+.rvap-card.rvap-clickable { cursor: pointer; }
+.rvap-card.rvap-clickable:hover {
+  box-shadow: 0 4px 18px rgba(0,0,0,.06);
+  transform: translateY(-1px);
+}
+.rvap-card.rvap-clickable:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
