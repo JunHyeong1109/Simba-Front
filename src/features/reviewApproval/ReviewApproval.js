@@ -1,22 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import "./ReviewApproval.css";
-import api from "../../api"; 
+import api from "../../api";
 
 const ENDPOINTS = {
   myStores: ["/itda/me/stores", "/itda/stores"],
   storeReviews: () => `/itda/reviews`,
   storeSummary: (storeId) => `/itda/stores/${storeId}/summary`,
+  // ✅ 승인/거부: 쿼리스트링으로 전달
   reviewApprove: (id) => [
-    { method: "patch", url: `/itda/reviews/${id}/approve`, body: { approve: true } },
-    { method: "patch", url: `/itda/reviews/${id}`,         body: { status: "APPROVED" } },
+    { method: "patch", url: `/itda/reviews/${id}?status=APPROVED` },
   ],
   reviewReject: (id) => (
-    { method: "patch", url: `/itda/reviews/${id}`, body: { status: "REJECTED" } }
+    { method: "patch", url: `/itda/reviews/${id}?status=REJECTED` }
   ),
   voucherIssue: (payload) => [
     { method: "post", url: `/itda/vouchers/issue`, body: payload },
-    { method: "post", url: `/itda/vouchers`,       body: payload },
+    { method: "post", url: `/itda/vouchers`, body: payload },
   ],
 };
 
@@ -322,8 +322,8 @@ export default function ReviewApprovalPage() {
           {/* 상태 필터: ALL / PENDING / APPROVED(검수 완료) */}
           <div className="rvap-tabs" role="tablist" aria-label="리뷰 상태">
             {[
-              { key: "ALL",      label: "모든 리뷰" },
-              { key: "PENDING",  label: "검수 대기" },
+              { key: "ALL", label: "모든 리뷰" },
+              { key: "PENDING", label: "검수 대기" },
               { key: "APPROVED", label: "검수 완료" }, // 완료=APPROVED+REJECTED
             ].map((t) => (
               <button
