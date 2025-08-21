@@ -3,67 +3,51 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import "./ReviewApproval.css";
 import api from "../../api";
 
-const JSON_HDR = { headers: { "Content-Type": "application/json" } };
+/** 필요 시 유지하세요 */
+const JSON_HDR = {
+  headers: { "Content-Type": "application/json" },
+  withCredentials: true,
+};
 
 const ENDPOINTS = {
   myStores: ["/itda/me/stores", "/itda/stores"],
   storeReviews: () => `/itda/reviews`,
-  // ✅ 승인: status는 쿼리스트링, 본문은 JSON(title/startDate/endDate) + Content-Type 명시
-  reviewApprove: (id, payload) => [
-    {
-      method: "patch",
-      url: `/itda/reviews/${id}`,
-      body: payload, // { title, startDate, endDate }
-      config: { params: { status: "APPROVED" }, ...JSON_HDR },
-    },
-  ],
-  // ✅ 거부: status는 쿼리스트링, 본문은 빈 JSON + Content-Type 명시
+
+  // ✅ 바디 없이, /itda/reviews/{id}/status 로 호출 + status는 params로
+  reviewApprove: (id) => ({
+    method: "patch",
+    url: `/itda/reviews/${id}/status`,
+    config: { params: { status: "APPROVED" }, ...JSON_HDR },
+  }),
   reviewReject: (id) => ({
     method: "patch",
-    url: `/itda/reviews/${id}`,
-    body: {},
+    url: `/itda/reviews/${id}/status`,
     config: { params: { status: "REJECTED" }, ...JSON_HDR },
   }),
-  voucherIssue: (payload) => [
-    { method: "post", url: `/itda/vouchers/issue`, body: payload },
-    { method: "post", url: `/itda/vouchers`, body: payload },
-  ],
 };
 
-/* ===== 로컬 날짜 유틸 (UTC 보정 없이 yyyy-mm-dd) ===== */
-const isoLocal = (d) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
-const addDaysLocal = (date, n) => {
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  d.setDate(d.getDate() + n);
-  return d;
-};
+// 표시용(그대로 유지)
 const fmtDisplay = (iso) => {
   if (!iso) return "-";
-  const [y, m, d] = iso.split("-");
-  return `${y}.${m}.${d}`;
+  const [y, m, d] = String(iso).split("-");
+  return y && m && d ? `${y}.${m}.${d}` : String(iso);
 };
 
 export default function ReviewApprovalPage() {
-  // 🔄 라우터 컨텍스트에서 user를 받습니다
   const { user } = useOutletContext() || {};
   const navigate = useNavigate();
 
   // ───────── 접근 가드
   useEffect(() => {
     const role = (user?.role || "").toString().toUpperCase();
-    if (!user) return; // 상위(AppLayout)에서 로딩 대기
+    if (!user) return;
     if (role !== "OWNER") {
       alert("사장님 전용 페이지입니다.");
       navigate("/", { replace: true });
     }
   }, [user, navigate]);
 
-  // ───────── 매장/리뷰/요약 상태
+  // ───────── 상태
   const [stores, setStores] = useState([]);
   const [loadingStores, setLoadingStores] = useState(true);
   const [storeErr, setStoreErr] = useState("");
@@ -72,19 +56,14 @@ export default function ReviewApprovalPage() {
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [reviewErr, setReviewErr] = useState("");
-  const [statusFilter, setStatusFilter] = useState("PENDING"); // "ALL" | "PENDING" | "APPROVED"(=완료)
+  const [statusFilter, setStatusFilter] = useState("PENDING"); // ALL | PENDING | APPROVED(=완료)
 
-  // ✅ 요약은 /itda/reviews 응답 기반으로 직접 계산/반영
   const [summary, setSummary] = useState(null);
 
-  // ───────── 보상/검수 모달 상태
   const [rewardOpen, setRewardOpen] = useState(false);
   const [rewardTarget, setRewardTarget] = useState(null);
-  const [rewardTitle, setRewardTitle] = useState("리뷰 보상");
-  const [rewardStart, setRewardStart] = useState(""); // ISO yyyy-mm-dd
-  const [rewardEnd, setRewardEnd] = useState("");     // ISO yyyy-mm-dd
   const [rewardSubmitting, setRewardSubmitting] = useState(false);
-  const [decision, setDecision] = useState("APPROVE"); // "APPROVE" | "REJECT"
+  const [decision, setDecision] = useState("APPROVE"); // APPROVE | REJECT
 
   // ───────── 매장 불러오기
   useEffect(() => {
@@ -100,7 +79,6 @@ export default function ReviewApprovalPage() {
         } catch {
           const { data } = await api.get(ENDPOINTS.myStores[1]);
           list = Array.isArray(data) ? data : data?.items || [];
-          // ownerId가 있으면 내 것만 필터
           if (user?.id && list.length && list[0]?.ownerId != null) {
             list = list.filter((s) => String(s.ownerId) === String(user.id));
           }
@@ -139,27 +117,21 @@ export default function ReviewApprovalPage() {
       text: r.text ?? r.content ?? "",
       date: r.date ?? r.createdAt ?? r.created_at ?? "",
       images: r.images ?? r.photos ?? [],
-      status: st, // "PENDING" | "APPROVED" | "REJECTED"
+      status: st, // PENDING | APPROVED | REJECTED
       rewardStart: r.rewardStart,
       rewardEnd: r.rewardEnd,
     };
   };
 
   const computeSummary = (rawData, list) => {
-    // 백엔드가 집계값을 실어주는 경우 우선 사용
     const fromApiTotal = rawData?.total ?? rawData?.count;
     const fromApiAvg = rawData?.avgRating ?? rawData?.averageRating ?? rawData?.avg;
-
     const total = typeof fromApiTotal === "number" ? fromApiTotal : list.length;
     const avg =
       typeof fromApiAvg === "number"
         ? fromApiAvg
         : (list.reduce((s, r) => s + (Number(r.rating) || 0), 0) / (list.length || 1));
-
-    return {
-      total,
-      avgRating: Math.round((avg || 0) * 10) / 10, // 소수점 1자리
-    };
+    return { total, avgRating: Math.round((avg || 0) * 10) / 10 };
   };
 
   const fetchReviews = async (storeId) => {
@@ -167,14 +139,10 @@ export default function ReviewApprovalPage() {
     setLoadingReviews(true);
     setReviewErr("");
     try {
-      const { data } = await api.get(ENDPOINTS.storeReviews(), {
-        params: { storeId },
-      });
+      const { data } = await api.get(ENDPOINTS.storeReviews(), { params: { storeId } });
       const list = Array.isArray(data) ? data : data?.items || [];
       const normalized = list.map(normalizeReview);
       setReviews(normalized);
-
-      // ✅ 리뷰 API 기반 요약 계산/반영
       setSummary(computeSummary(data, normalized));
     } catch (e) {
       setReviews([]);
@@ -198,116 +166,52 @@ export default function ReviewApprovalPage() {
     return reviews.filter((r) => r.status === key);
   }, [reviews, statusFilter]);
 
-  // ───────── 보상/검수 모달 열기 (고정 기간: 오늘 ~ 오늘+7)
+  // ───────── 모달 열기 (이제 날짜/제목 없음)
   const openReward = (review) => {
-    const today = new Date();
-    const startIso = isoLocal(today);
-    const endIso = isoLocal(addDaysLocal(today, 7));
     setRewardTarget(review);
-    setRewardTitle("리뷰 보상");
-    setRewardStart(startIso);
-    setRewardEnd(endIso);
-    setDecision("APPROVE"); // 기본값: 승인
+    setDecision("APPROVE");
     setRewardOpen(true);
   };
 
-  // 카드 키보드 접근(Enter/Space로 모달)
-  const handleCardKey = (e, review) => {
-    if (review.status !== "PENDING") return;
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openReward(review);
-    }
-  };
+  // ───────── 바디 없이 PATCH (axios.patch(url, null, config))
+  const patchNoBody = (url, config) => api.patch(url, null, config);
 
-  // ───────── 완료(승인/비승인 처리 + 보상 발급)
+  // ───────── 승인/비승인 처리
   const submitDecision = async () => {
     try {
       if (!rewardTarget) return;
 
-      // 비승인 처리
+      setRewardSubmitting(true);
+
       if (decision === "REJECT") {
-        setRewardSubmitting(true);
-        const rej = ENDPOINTS.reviewReject(rewardTarget.id);
-        await api[rej.method](rej.url, rej.body ?? {}, rej.config);
+        const t = ENDPOINTS.reviewReject(rewardTarget.id);
+        await patchNoBody(t.url, t.config);
 
         setReviews((prev) =>
-          prev.map((r) =>
-            r.id === rewardTarget.id ? { ...r, status: "REJECTED" } : r
-          )
+          prev.map((r) => (r.id === rewardTarget.id ? { ...r, status: "REJECTED" } : r))
         );
-
         setRewardOpen(false);
         setRewardTarget(null);
-        setStatusFilter("APPROVED"); // 비승인도 검수 완료 탭에서 보이도록
+        setStatusFilter("APPROVED");
         alert("비승인 처리되었습니다.");
         return;
       }
 
-      // 승인 처리 + 바우처 발급 (기간 고정)
-      const userId =
-        rewardTarget.userId ??
-        rewardTarget.reviewerId ??
-        rewardTarget.writerId ??
-        rewardTarget.user?.id;
-      if (!userId) {
-        alert("리뷰 작성자 ID를 찾을 수 없어 보상을 발급할 수 없습니다.");
-        return;
-      }
-
-      setRewardSubmitting(true);
-
-      // 1) 승인(필요 시) — 본문에 title/startDate/endDate 포함
+      // APPROVE
       if (rewardTarget.status !== "APPROVED") {
-        const approvePayload = {
-          title: rewardTitle,
-          startDate: rewardStart,
-          endDate: rewardEnd,
-        };
-        const trials = ENDPOINTS.reviewApprove(rewardTarget.id, approvePayload);
-        let ok = false, err;
-        for (const t of trials) {
-          try {
-            await api[t.method](t.url, t.body ?? {}, t.config);
-            ok = true;
-            break;
-          } catch (e) { err = e; }
-        }
-        if (!ok) throw err;
+        const t = ENDPOINTS.reviewApprove(rewardTarget.id);
+        await patchNoBody(t.url, t.config);
       }
 
-      // 2) 바우처 발급 (고정 기간) — 기존 로직 유지
-      const voucherPayload = {
-        userId,
-        storeId: Number(selectedStoreId),
-        title: rewardTitle,
-        startAt: rewardStart, // 오늘
-        endAt: rewardEnd,     // 오늘+7
-      };
-      const trials2 = ENDPOINTS.voucherIssue(voucherPayload);
-      let ok2 = false, err2;
-      for (const t of trials2) {
-        try {
-          await api[t.method](t.url, t.body);
-          ok2 = true;
-          break;
-        } catch (e) { err2 = e; }
-      }
-      if (!ok2) throw err2;
-
-      // ✅ UI 즉시 반영 (승인됨 + 기간 표기)
+      // UI 반영
       setReviews((prev) =>
-        prev.map((r) =>
-          r.id === rewardTarget.id
-            ? { ...r, status: "APPROVED", rewardStart, rewardEnd }
-            : r
-        )
+        prev.map((r) => (r.id === rewardTarget.id ? { ...r, status: "APPROVED" } : r))
       );
 
       setRewardOpen(false);
       setRewardTarget(null);
       setStatusFilter("APPROVED");
-      alert("승인 및 보상 발급이 완료되었습니다.");
+      alert("승인 처리되었습니다.");
     } catch (e) {
       console.warn("submitDecision failed:", e);
       const msg = e?.response?.data?.message || e?.message || "처리 중 오류가 발생했습니다.";
@@ -317,13 +221,20 @@ export default function ReviewApprovalPage() {
     }
   };
 
+  const handleCardKey = (e, review) => {
+    if (review.status !== "PENDING") return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openReward(review);
+    }
+  };
+
   return (
     <div className="rvap-root">
       <header className="rvap-head">
         <h1 className="rvap-title">리뷰 확인 및 완료처리</h1>
 
         <div className="rvap-controls">
-          {/* 매장 선택 */}
           <select
             className="rvap-select"
             value={selectedStoreId}
@@ -340,12 +251,11 @@ export default function ReviewApprovalPage() {
             })}
           </select>
 
-          {/* 상태 필터: ALL / PENDING / APPROVED(검수 완료) */}
           <div className="rvap-tabs" role="tablist" aria-label="리뷰 상태">
             {[
               { key: "ALL", label: "모든 리뷰" },
               { key: "PENDING", label: "검수 대기" },
-              { key: "APPROVED", label: "검수 완료" }, // 완료=APPROVED+REJECTED
+              { key: "APPROVED", label: "검수 완료" }, // 완료 = APPROVED + REJECTED
             ].map((t) => (
               <button
                 key={t.key}
@@ -377,11 +287,9 @@ export default function ReviewApprovalPage() {
         </section>
       )}
 
-      {/* 매장 로딩/에러 */}
       {loadingStores && <div className="rvap-empty">매장 목록을 불러오는 중…</div>}
       {!loadingStores && storeErr && <div className="rvap-error">{storeErr}</div>}
 
-      {/* 리뷰 리스트 */}
       {!loadingStores && !storeErr && (
         <section className="rvap-list">
           {loadingReviews ? (
@@ -398,9 +306,7 @@ export default function ReviewApprovalPage() {
               <article
                 key={r.id}
                 className={`rvap-card ${r.status === "PENDING" ? "rvap-clickable" : ""}`}
-                onClick={() => {
-                  if (r.status === "PENDING") openReward(r);
-                }}
+                onClick={() => r.status === "PENDING" && openReward(r)}
                 role={r.status === "PENDING" ? "button" : undefined}
                 tabIndex={r.status === "PENDING" ? 0 : undefined}
                 onKeyDown={(e) => handleCardKey(e, r)}
@@ -430,16 +336,8 @@ export default function ReviewApprovalPage() {
 
                 <div className="rvap-actions">
                   {r.status === "APPROVED" ? (
-                    <>
-                      <span className="rvap-chip ok">승인됨</span>
-                      {r.rewardStart && r.rewardEnd && (
-                        <span className="rvap-chip muted">
-                          {fmtDisplay(r.rewardStart)} ~ {fmtDisplay(r.rewardEnd)}
-                        </span>
-                      )}
-                    </>
+                    <span className="rvap-chip ok">승인됨</span>
                   ) : r.status === "REJECTED" ? (
-                    /* ✅ 검수 완료 탭(=APPROVED 필터)에서는 빨간 칩, 그 외 탭에서는 비활성 버튼 */
                     statusFilter === "APPROVED" ? (
                       <span className="rvap-chip danger">비승인</span>
                     ) : (
@@ -450,13 +348,13 @@ export default function ReviewApprovalPage() {
                   ) : (
                     <button
                       type="button"
-                      className="rvap-btn gift"
+                      className="rvap-btn"
                       onClick={(e) => {
                         e.stopPropagation();
                         openReward(r);
                       }}
                     >
-                      보상
+                      검수
                     </button>
                   )}
                 </div>
@@ -466,16 +364,12 @@ export default function ReviewApprovalPage() {
         </section>
       )}
 
-      {/* 보상/검수 모달 */}
+      {/* 보상/검수 모달 (이제 라디오만) */}
       {rewardOpen && (
-        <div
-          className="rvap-modal-backdrop"
-          onClick={() => !rewardSubmitting && setRewardOpen(false)}
-        >
+        <div className="rvap-modal-backdrop" onClick={() => !rewardSubmitting && setRewardOpen(false)}>
           <div className="rvap-modal" onClick={(e) => e.stopPropagation()}>
             <h3 className="rvap-modal-title">검수 처리</h3>
             <div className="rvap-modal-body">
-              {/* 승인/비승인 선택 */}
               <div className="rvap-field">
                 <span className="rvap-label">검수 결과</span>
                 <div style={{ display: "flex", gap: 12 }}>
@@ -501,54 +395,13 @@ export default function ReviewApprovalPage() {
                   </label>
                 </div>
               </div>
-
-              {/* 입력칸은 항상 표시. REJECT일 때 disabled 처리 */}
-              <label className="rvap-field">
-                <span className="rvap-label">보상 제목</span>
-                <input
-                  className="rvap-input"
-                  value={rewardTitle}
-                  onChange={(e) => setRewardTitle(e.target.value)}
-                  disabled={decision === "REJECT"}
-                />
-              </label>
-
-              <div className="rvap-grid2">
-                <label className="rvap-field">
-                  <span className="rvap-label">시작일</span>
-                  <input
-                    className="rvap-input"
-                    type="text"
-                    value={fmtDisplay(rewardStart)}
-                    readOnly
-                    disabled={decision === "REJECT"}
-                  />
-                </label>
-                <label className="rvap-field">
-                  <span className="rvap-label">만료일</span>
-                  <input
-                    className="rvap-input"
-                    type="text"
-                    value={fmtDisplay(rewardEnd)}
-                    readOnly
-                    disabled={decision === "REJECT"}
-                  />
-                </label>
-              </div>
             </div>
 
             <div className="rvap-modal-actions">
-              <button
-                className="rvap-btn ghost"
-                onClick={() => !rewardSubmitting && setRewardOpen(false)}
-              >
+              <button className="rvap-btn ghost" onClick={() => !rewardSubmitting && setRewardOpen(false)}>
                 취소
               </button>
-              <button
-                className="rvap-btn ok"
-                disabled={rewardSubmitting}
-                onClick={submitDecision}
-              >
+              <button className="rvap-btn ok" disabled={rewardSubmitting} onClick={submitDecision}>
                 {rewardSubmitting ? "처리 중…" : "완료"}
               </button>
             </div>

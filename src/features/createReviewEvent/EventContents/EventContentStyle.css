@@ -1,20 +1,30 @@
 .content-input {
   width: 80%;
-  height: 400px;
-  margin-right: auto;
-  margin-left: auto;
-  display : block;
+  height: 400px;            /* 기본 높이. 필요시 min-height로 바꿔도 됨 */
+  margin: 0 auto;           /* 가운데 정렬 */
+  display: block;
   padding: 8px 10px;
   box-sizing: border-box;
   font-size: 14px;
-  border: 1px solid  #9aa0a6;
+  line-height: 1.5;
+  border: 1px solid #9aa0a6;
   background: #fff;
-  color: #111;             
-  outline: none; 
+  color: #111;
+  outline: none;
+  resize: vertical;         /* 사용자가 높이 조절 가능 */
 }
 
-/* placeholder 상태일 때만 회색 표시 */
-.title-input.is-placeholder {
+.content-input:focus {
+  border-color: #4c89ff;
+  box-shadow: 0 0 0 3px rgba(76, 137, 255, 0.15);
+}
+
+/* ✅ placeholder 상태(값이 비어있을 때) */
+.content-input.is-placeholder {
   color: #9aa0a6;
 }
 
+/* ✅ 실제 placeholder 텍스트 색상도 통일 */
+.content-input::placeholder {
+  color: #9aa0a6;
+}
