@@ -3,9 +3,17 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../api";
 import "./CreateButton.css";
 
-/** @type {import('axios').AxiosRequestConfig} */
-const JSON_HDR = { headers: { "Content-Type": "application/json" }, withCredentials: true };
 
+/** JSON 전용 옵션(다른 JSON API에서 사용 가능) */
+export const JSON_HDR = {
+  withCredentials: true,
+  headers: { "Content-Type": "application/json" },
+};
+
+/** 세션만 유지(이 요청은 multipart/form-data라서 Content-Type 비움) */
+export const SESSION_ONLY = { withCredentials: true };
+
+// 보조 유틸
 const pad2 = (n) => String(n).padStart(2, "0");
 // yyyy-MM-dd HH:mm (로컬, 초 제거)
 const toLocalMinuteSQL = (d) =>
@@ -84,20 +92,35 @@ export default function CreateButton({ collect, posterFile }) {
     try {
       setPending(true);
 
-      const payload = {
+      // ✅ 서버 DTO로 받을 JSON(= @RequestPart("request"))
+      const requestPayload = {
         title,
         description,
-        startAt,  // yyyy-MM-dd HH:mm
-        endAt,    // yyyy-MM-dd HH:mm
+        startAt,  // 'yyyy-MM-dd HH:mm'
+        endAt,    // 'yyyy-MM-dd HH:mm'
         storeId,
         lat: data.lat ?? null,
         lng: data.lng ?? null,
-        // address는 계약상 미전송
       };
-      // 숫자일 때만 포함 (원하면 null로 항상 보낼 수도 있음)
-      if (rewardCountVal !== null) payload.rewardCount = rewardCountVal;
+      if (rewardCountVal !== null) requestPayload.rewardCount = rewardCountVal;
 
-      await api.post("/itda/missions", payload, JSON_HDR);
+      // ✅ multipart/form-data 생성
+      const form = new FormData();
+
+      // request 파트를 application/json Blob으로 추가 (필수 핵심)
+      const requestBlob = new Blob([JSON.stringify(requestPayload)], { type: "application/json" });
+      form.append("request", requestBlob, "request.json");
+
+      // image 파트(선택): 파일이 있으면 추가 (백엔드에서 required면 검증 추가)
+      if (posterFile) {
+        form.append("image", posterFile, posterFile.name || "image");
+      } else {
+        // 백엔드에서 image가 필수면 아래 주석 해제
+        // return alert("포스터 이미지를 선택하세요.");
+      }
+
+      // ⚠️ Content-Type 수동 설정 금지 → axios가 boundary 포함 자동 설정
+      await api.post("/itda/missions", form, SESSION_ONLY);
 
       alert("미션이 등록되었습니다.");
       navigate("/map");

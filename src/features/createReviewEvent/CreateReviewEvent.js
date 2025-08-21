@@ -1,4 +1,3 @@
-// src/features/createReviewEvent/index.jsx (혹은 CreateReviewEvent.jsx)
 import { useState } from "react";
 import DatePick from "./Date/datePick";
 import RewardCount from "./Reward/rewardCount";
@@ -30,7 +29,7 @@ function CreateReviewEvent() {
       lng: g("event-lng"),
       startAt: toISO(start),
       endAt: toISO(end),
-      // 필요 시 보상 개수나 기타 값도 여기에 수집하세요 (예: rewardCount: g("event-reward"))
+      // 필요 시 보상 개수 등 추가 (예: rewardCount: g("event-reward"))
     };
   };
 
@@ -46,6 +45,7 @@ function CreateReviewEvent() {
           <RewardContent/>
         </div>
       </div>
+
       <h1></h1>
       <div className="app-row2">
         <div className="app-row">
