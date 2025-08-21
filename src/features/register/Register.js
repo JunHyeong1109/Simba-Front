@@ -1,4 +1,3 @@
-// src/features/register/Register.js
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../api";
@@ -8,7 +7,7 @@ export default function Register() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // URL에 role=OWNER 같이 오면 초기값으로 반영 (기본은 REVIEWER)
+  // URL 파라미터 반영: ?role=OWNER, ?next=/path
   const params = new URLSearchParams(location.search);
   const next = params.get("next") || "/";
   const initialRole = params.get("role");
@@ -23,7 +22,7 @@ export default function Register() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
-  // 간단한 클라이언트 유효성 검사 (서버 검증은 별도)
+  // 간단한 클라 검증(서버 검증은 별도)
   const validate = () => {
     const u = username.trim();
     const p = password.trim();
@@ -62,7 +61,7 @@ export default function Register() {
         username: username.trim(),
         password: password.trim(),
         email: email.trim(),
-        role, // 🔥 역할 전송: "OWNER" 또는 "REVIEWER"
+        role, // "OWNER" | "REVIEWER"
       });
 
       alert("회원가입 성공!");
@@ -79,13 +78,13 @@ export default function Register() {
   };
 
   return (
-    <div className="auth">
+    <div className="auth auth-register">
       <div className="container">
         <div className="logo" role="img" aria-label="Itda">Itda</div>
         <h2 className="title">Itda에 오신 것을 환영합니다!</h2>
 
         <form onSubmit={handleRegister} className="register-form" noValidate>
-          {/* 역할 선택: 사장님 / 리뷰어 */}
+          {/* 역할 선택 */}
           <fieldset className="role-group" disabled={pending}>
             <legend className="role-legend">역할 선택</legend>
 

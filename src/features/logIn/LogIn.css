@@ -1,14 +1,13 @@
-/* 기존의 body, h2, form input 전역 규칙을 모두 .auth 하위로 제한 */
+/* 로그인 공통 스코프 */
 .auth {
   font-family: Arial, sans-serif;
   background-color: #f5f5f5;
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 0; /* 필요 시 여백 조정 */
+  padding: 0;
 }
 
-/* 공통 클래스도 .auth로 범위 제한 */
 .auth .container {
   background: white;
   padding: 40px;
@@ -44,26 +43,48 @@
   box-sizing: border-box;
 }
 
-.auth .links {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
-}
-
+/* 로그인에서 버튼 색/모양은 기존 그대로 유지 */
 .auth .login-btn,
-.auth .signup-btn,
-.auth .link-btn {
+.auth .signup-btn {
   background-color: #4e6cff;
   color: white;
   border: none;
   padding: 10px;
-  width: 48%;
   border-radius: 5px;
   cursor: pointer;
   font-size: 14px;
 }
 
-.auth .link-btn { background-color: #aaa; }
-
 .auth .login-btn:hover,
-.auth .signup-btn:hover { background-color: #3b53d9; }
+.auth .signup-btn:hover {
+  background-color: #3b53d9;
+}
+
+.auth .link-btn {
+  background-color: #aaa;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* 버튼 배치 컨테이너 */
+.auth .links {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* ✅ 폭/레이아웃은 로그인 화면에서만 2개 나란히 */
+.auth.auth-login .links .login-btn,
+.auth.auth-login .links .signup-btn {
+  width: 48%;
+}
+
+/* 필요 시 로그인 화면에서만 링크 버튼도 반폭으로 */
+.auth.auth-login .links .link-btn {
+  width: 48%;
+}

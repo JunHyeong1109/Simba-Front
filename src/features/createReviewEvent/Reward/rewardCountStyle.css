@@ -1,6 +1,6 @@
 /* 보상 수량 */
 .reward-input {
-  width: 120px;            /* 100 → 120으로 살짝 여유 */
+  width: 100px;            /* 100 → 120으로 살짝 여유 */
   height: 38px;
   padding: 8px 10px;
   box-sizing: border-box;
@@ -12,16 +12,6 @@
 .reward-input.is-placeholder { color: #9aa0a6; }
 .reward-input option { color: #111; }
 
-/* 매장 선택 */
-.select-input {
-  width: 160px;            /* 100 → 160으로 여유 */
-  height: 38px;
-  padding: 8px 10px;
-  box-sizing: border-box;
-  font-size: 14px;
-  border: 1px solid #d9d9d9;
-  background: #fff;
-  color: #111;
-}
+
 .select-input.is-placeholder { color: #9aa0a6; }
 .select-input option { color: #111; }

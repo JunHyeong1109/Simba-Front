@@ -3,16 +3,27 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import "./ReviewApproval.css";
 import api from "../../api";
 
+const JSON_HDR = { headers: { "Content-Type": "application/json" } };
+
 const ENDPOINTS = {
   myStores: ["/itda/me/stores", "/itda/stores"],
   storeReviews: () => `/itda/reviews`,
-  // ✅ 승인/거부: 쿼리스트링으로 전달
-  reviewApprove: (id) => [
-    { method: "patch", url: `/itda/reviews/${id}?status=APPROVED` },
+  // ✅ 승인: status는 쿼리스트링, 본문은 JSON(title/startDate/endDate) + Content-Type 명시
+  reviewApprove: (id, payload) => [
+    {
+      method: "patch",
+      url: `/itda/reviews/${id}`,
+      body: payload, // { title, startDate, endDate }
+      config: { params: { status: "APPROVED" }, ...JSON_HDR },
+    },
   ],
-  reviewReject: (id) => (
-    { method: "patch", url: `/itda/reviews/${id}?status=REJECTED` }
-  ),
+  // ✅ 거부: status는 쿼리스트링, 본문은 빈 JSON + Content-Type 명시
+  reviewReject: (id) => ({
+    method: "patch",
+    url: `/itda/reviews/${id}`,
+    body: {},
+    config: { params: { status: "REJECTED" }, ...JSON_HDR },
+  }),
   voucherIssue: (payload) => [
     { method: "post", url: `/itda/vouchers/issue`, body: payload },
     { method: "post", url: `/itda/vouchers`, body: payload },
@@ -218,14 +229,13 @@ export default function ReviewApprovalPage() {
       if (decision === "REJECT") {
         setRewardSubmitting(true);
         const rej = ENDPOINTS.reviewReject(rewardTarget.id);
-        await api[rej.method](rej.url, rej.body);
+        await api[rej.method](rej.url, rej.body ?? {}, rej.config);
 
         setReviews((prev) =>
           prev.map((r) =>
             r.id === rewardTarget.id ? { ...r, status: "REJECTED" } : r
           )
         );
-        // 요약(평균/갯수)은 상태 변경과 무관하므로 그대로 둠
 
         setRewardOpen(false);
         setRewardTarget(null);
@@ -247,13 +257,18 @@ export default function ReviewApprovalPage() {
 
       setRewardSubmitting(true);
 
-      // 1) 승인(필요 시)
+      // 1) 승인(필요 시) — 본문에 title/startDate/endDate 포함
       if (rewardTarget.status !== "APPROVED") {
-        const trials = ENDPOINTS.reviewApprove(rewardTarget.id);
+        const approvePayload = {
+          title: rewardTitle,
+          startDate: rewardStart,
+          endDate: rewardEnd,
+        };
+        const trials = ENDPOINTS.reviewApprove(rewardTarget.id, approvePayload);
         let ok = false, err;
         for (const t of trials) {
           try {
-            await api[t.method](t.url, t.body);
+            await api[t.method](t.url, t.body ?? {}, t.config);
             ok = true;
             break;
           } catch (e) { err = e; }
@@ -261,15 +276,15 @@ export default function ReviewApprovalPage() {
         if (!ok) throw err;
       }
 
-      // 2) 바우처 발급 (고정 기간)
-      const payload = {
+      // 2) 바우처 발급 (고정 기간) — 기존 로직 유지
+      const voucherPayload = {
         userId,
         storeId: Number(selectedStoreId),
         title: rewardTitle,
         startAt: rewardStart, // 오늘
         endAt: rewardEnd,     // 오늘+7
       };
-      const trials2 = ENDPOINTS.voucherIssue(payload);
+      const trials2 = ENDPOINTS.voucherIssue(voucherPayload);
       let ok2 = false, err2;
       for (const t of trials2) {
         try {
@@ -288,7 +303,6 @@ export default function ReviewApprovalPage() {
             : r
         )
       );
-      // 평균/총 건수는 변화 없음(동일 리뷰 수, 별점은 고정)
 
       setRewardOpen(false);
       setRewardTarget(null);

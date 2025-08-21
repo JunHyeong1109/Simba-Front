@@ -1,5 +1,5 @@
 .select-input {
-  width: 100%;              /* 100px → 100% */
+  width: 100px;              /* 100px → 100% */
   min-width: 140px;
   height: 38px;
   padding: 8px 10px;

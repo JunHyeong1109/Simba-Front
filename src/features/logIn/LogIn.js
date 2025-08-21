@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation, useOutletContext } from "react-router-dom";
-import api from "../../api";         // ← 경로 확인 (예: src/features/auth 기준)
+import api from "../../api"; // 경로 확인 필요
 import "./LogIn.css";
 
 export default function Login() {
@@ -11,7 +11,7 @@ export default function Login() {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { setUser } = useOutletContext() ?? {};   // AppLayout의 <Outlet context={{ user, setUser }} />
+  const { setUser } = useOutletContext() ?? {}; // AppLayout: <Outlet context={{ user, setUser }} />
 
   const next = new URLSearchParams(location.search).get("next") || "/";
 
@@ -23,17 +23,17 @@ export default function Login() {
     try {
       setPending(true);
 
-      // 백엔드가 username/password를 받는다고 가정 (email 사용 시 필드명만 바꿔주면 됨)
+      // 서버 필드명이 account/email 이면 username 키만 바꿔주세요.
       await api.post("/itda/auth/login", {
-        username: account,      // ← 서버가 'username' 대신 'account'를 받으면 키를 맞춰주세요.
+        username: account,
         password,
       });
 
-      // 로그인 성공 후 현재 사용자 조회 → TopBar 즉시 반영
+      // 로그인 직후 me 조회해서 상단/컨텍스트 갱신
       const me = await api.get("/itda/me");
       setUser?.(me.data);
 
-      navigate(next, { replace: true }); // 기본은 "/"로 이동, ?next= 지원
+      navigate(next, { replace: true });
     } catch (err) {
       const msg = err?.response?.data?.message || "로그인에 실패했습니다.";
       setError(msg);
@@ -43,7 +43,7 @@ export default function Login() {
   };
 
   return (
-    <div className ="auth">
+    <div className="auth auth-login">
       <div className="container">
         <div className="logo" role="img" aria-label="Itda">Itda</div>
 
@@ -74,7 +74,8 @@ export default function Login() {
             <button
               type="button"
               className="link-btn"
-              onClick={() => navigate("/register")}
+              onClick={() => navigate("/register?next=" + encodeURIComponent(next))}
+              disabled={pending}
             >
               회원가입
             </button>

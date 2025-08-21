@@ -14,7 +14,7 @@ function SelectShop({ onSelect }) {
       setLoading(true);
       setError("");
       try {
-        const { data } = await api.get("/itda/stores");
+        const { data } = await api.get("/itda/me/stores");
         const list = Array.isArray(data) ? data : data?.items || [];
         const normalized = list.map((s) => ({
           ...s,

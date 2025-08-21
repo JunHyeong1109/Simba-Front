@@ -1,31 +1,101 @@
-/* 업로드/미리보기 버튼 줄 */
-.poster-upload {
+/* 업로드 영역 기본 */
+.poster-upload { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.poster-btn { padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; cursor: pointer; }
+.poster-btn:hover { background: #f8fafc; }
+.poster-btn.btn.small { padding: 6px 10px; font-size: 12px; }
+.poster-filename { font-size: 12px; color: #374151; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 🔹 작은 플로팅 미리보기 창 */
+.poster-float {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  height: 480px;
+  max-height: calc(100vh - 32px);
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.16);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  z-index: 1100; /* 페이지 상단에 보이도록 */
+}
+
+.poster-float-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #eee;
+  font-weight: 600;
+}
+
+.poster-float-body {
+  padding: 8px;
+  background: #fafafa;
+  overflow: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;         /* 줄바꿈 X */
-  white-space: nowrap;       /* 텍스트 줄바꿈 금지 */
+  justify-content: center;
 }
 
-/* 버튼 공통 */
-.poster-btn {
-  padding: 8px 12px;
-  border: 1px solid #dcdcdc;
-  background: #f7f7f7;
+.poster-preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
   border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
-  line-height: 1;
 }
-.poster-btn:hover { background: #ececec; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-.poster-btn:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
 
-/* 파일명은 너무 길면 '…' 처리 */
-.poster-filename {
-  max-width: 200px;          /* 한 줄 유지용 폭 제한 */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #666;
-  font-size: 13px;
+.sr-only {
+  position:absolute!important; width:1px!important; height:1px!important;
+  padding:0!important; margin:-1px!important; overflow:hidden!important;
+  clip:rect(0 0 0 0)!important; white-space:nowrap!important; border:0!important;
+}
+
+/* 우상단 동그란 닫기 아이콘 버튼 */
+.poster-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  transition: transform .12s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+
+.poster-close::before,
+.poster-close::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;              /* X 막대 길이 */
+  height: 2px;              /* X 막대 두께 */
+  background: #111827;
+  border-radius: 2px;
+  transform-origin: center;
+}
+
+.poster-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+.poster-close::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+
+.poster-close:hover {
+  background: #f8fafc;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+}
+
+.poster-close:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+
+.poster-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
 }

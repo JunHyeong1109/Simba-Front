@@ -1,11 +1,10 @@
-// src/features/createReviewEvent/EventPoaster/EventPoaster.js
 import React, { useEffect, useRef, useState } from "react";
-import "./EventPoaster.css"; // 선택: 스타일 분리해두었다면 사용
+import "./EventPoaster.css";
 
 /**
- * 포스터 업로더 (미리보기 모달)
+ * 포스터 업로더 (작은 플로팅 미리보기)
  * - 즉시 화면 노출 X
- * - "미리보기" 버튼 클릭 시 모달로만 표시
+ * - "미리보기" 버튼 클릭 시 우하단 작은 창으로 표시
  *
  * Props:
  *  - onChange?: (file: File | null) => void
@@ -24,7 +23,7 @@ export default function EventPoaster({ onChange, maxSizeMB = 5 }) {
     // 이미지 타입/크기 간단 검증
     if (!f.type.startsWith("image/")) {
       alert("이미지 파일만 업로드할 수 있습니다.");
-      fileInputRef.current && (fileInputRef.current.value = "");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       setFile(null);
       onChange?.(null);
       return;
@@ -32,7 +31,7 @@ export default function EventPoaster({ onChange, maxSizeMB = 5 }) {
     const maxBytes = maxSizeMB * 1024 * 1024;
     if (f.size > maxBytes) {
       alert(`이미지 크기는 ${maxSizeMB}MB 이하여야 합니다.`);
-      fileInputRef.current && (fileInputRef.current.value = "");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       setFile(null);
       onChange?.(null);
       return;
@@ -53,7 +52,7 @@ export default function EventPoaster({ onChange, maxSizeMB = 5 }) {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  // ESC로 모달 닫기
+  // ESC로 미리보기 창 닫기
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e) => e.key === "Escape" && setOpen(false);
@@ -109,28 +108,33 @@ export default function EventPoaster({ onChange, maxSizeMB = 5 }) {
         </div>
       )}
 
-      {/* 모달 (오버레이 클릭으로 닫기) */}
+      {/* 🔹 우하단 작은 미리보기 패널 (오버레이 없음) */}
       {open && (
         <div
-          className="poster-modal-overlay"
-          onClick={(e) => {
-            if (e.target.classList.contains("poster-modal-overlay")) setOpen(false);
-          }}
+          className="poster-float"
+          role="dialog"
+          aria-modal="false"
+          aria-label="포스터 미리보기"
         >
-          <div className="poster-modal" role="dialog" aria-modal="true" aria-label="포스터 미리보기">
-            <div className="poster-modal-header">
-              <strong>포스터 미리보기</strong>
-              <button type="button" className="btn small" onClick={() => setOpen(false)}>
-                닫기
-              </button>
-            </div>
-            <div className="poster-modal-body">
-              {previewURL ? (
-                <img src={previewURL} alt="이벤트 포스터 미리보기" className="poster-preview-img" />
-              ) : (
-                <p>선택된 이미지가 없습니다.</p>
-              )}
-            </div>
+          <div className="poster-float-header">
+            <strong>포스터 미리보기</strong>
+            <button
+              type="button"
+              className="poster-close"
+              onClick={() => setOpen(false)}
+              aria-label="닫기"
+            />
+          </div>
+          <div className="poster-float-body">
+            {previewURL ? (
+              <img
+                src={previewURL}
+                alt="이벤트 포스터 미리보기"
+                className="poster-preview-img"
+              />
+            ) : (
+              <p>선택된 이미지가 없습니다.</p>
+            )}
           </div>
         </div>
       )}

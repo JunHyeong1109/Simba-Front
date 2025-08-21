@@ -8,6 +8,7 @@ import EventPoaster from "./EventPoaster/EventPoaster";
 import EventTitle from "./EventTitle/EventTitle";
 import EventContent from "./EventContents/EventContent";
 import CreateButton from "./CreateButton/CreateButton";
+import RewardContent from "./Reward/rewardContent";
 
 function CreateReviewEvent() {
   const [posterFile, setPosterFile] = useState(null); // ✅ 포스터 파일 상태
@@ -42,6 +43,12 @@ function CreateReviewEvent() {
         <div className="app-row">
           <DatePick />      {/* 시작/종료 input: id="event-start"/"event-end" */}
           <RewardCount />   {/* 필요 시 id="event-reward" 등 부여 */}
+          <RewardContent/>
+        </div>
+      </div>
+      <h1></h1>
+      <div className="app-row2">
+        <div className="app-row">
           <SelectShop />    {/* hidden: event-store-id, event-shop, event-lat, event-lng, event-address */}
           <EventPoaster onChange={setPosterFile} />  {/* ✅ 파일 받기 */}
         </div>

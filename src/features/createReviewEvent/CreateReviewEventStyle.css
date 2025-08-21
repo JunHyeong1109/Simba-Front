@@ -1,29 +1,41 @@
-/* 바깥 래퍼: 폭 80% + 가운데 정렬 */
+/* 바깥 래퍼: 폭 80% + 가운데 정렬 (그대로) */
 .app-row2 {
   width: 80%;
   margin: 0 auto;
   display: block;
 }
 
-/* 상단 컨트롤 한 줄 고정 + 가로 스크롤 */
+/* 상단 컨트롤: 여러 줄 허용(세로 제약 제거) */
 .app-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: nowrap;       /* 절대 줄바꿈 X */
-  overflow-x: auto;        /* 좁으면 가로 스크롤 */
-  padding-bottom: 4px;     /* 스크롤바 겹침 방지 소량 여백 */
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable both-edges; /* 스크롤 바운스 줄임(지원 브라우저) */
+  align-items: flex-start;     /* 여러 줄일 때 위쪽 정렬 */
+  align-content: flex-start;   /* 여러 줄 사이의 수직 정렬 */
+  flex-wrap: wrap;             /* ✅ 줄바꿈 허용 */
+  gap: 12px;                   /* 칸 간격 */
+  row-gap: 8px;                /* 줄 간격(옵션) */
+  overflow-x: visible;         /* 가로 스크롤 제거 */
+  padding-bottom: 0;           /* 스크롤 여백 제거 */
 }
 
-/* 각 아이템을 '내용 크기만큼' 차지 → 한 줄 유지 */
+/* 각 아이템은 내용 크기만큼 차지 */
 .app-row > * {
   flex: 0 0 auto;
-  min-width: 0;            /* 내부 요소가 너무 커도 레이아웃 깨짐 방지 */
+  min-width: 0;                /* 내부 요소가 커도 깨짐 방지 */
 }
 
-/* (선택) 스크롤바 조금 얇게 */
+/* (옵션) 스크롤바 스타일은 wrap 모드에선 의미가 없어도 남겨둔다면 무해 */
 .app-row::-webkit-scrollbar { height: 8px; }
 .app-row::-webkit-scrollbar-thumb { background: #c9c9c9; border-radius: 999px; }
 .app-row::-webkit-scrollbar-track { background: transparent; }
+
+/* ─────────────────────────────
+   필요 시, 예전처럼 "한 줄 + 가로 스크롤"을 써야 한다면
+   .app-row 대신 .app-row.app-row--nowrap 를 사용
+   ───────────────────────────── */
+.app-row--nowrap {
+  flex-wrap: nowrap;           /* 한 줄 고정 */
+  overflow-x: auto;            /* 가로 스크롤 */
+  padding-bottom: 4px;         /* 스크롤바 겹침 방지 */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable both-edges;
+}

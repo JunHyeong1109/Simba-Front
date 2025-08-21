@@ -1,6 +1,6 @@
 // src/app/features/editShop/Inner.js
 import { useEffect, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useParams, useOutletContext } from "react-router-dom";
 import "./InnerStyle.css";
 import api from "../../../api";
 import AddrPickerModal from "./AddrPickerModal";
@@ -20,12 +20,19 @@ function Inner() {
   const id = rawId != null ? String(rawId) : null;
   const isEdit = !!id;
 
+  // 🔐 로그인 유저 (AppLayout에서 제공되는 컨텍스트 사용)
+  const { user } = useOutletContext?.() || {};
+  const loginDisplayName =
+    user?.name || user?.nickname || user?.username || user?.displayName || "";
+
   const [shopName, setShopName] = useState("");
-  const [bossName, setBossName] = useState("");
   const [shopNum, setShopNum] = useState("");
   const [addr, setAddr] = useState("");
   const [selectValue, setSelectValue] = useState("");
   const [latLng, setLatLng] = useState({ lat: null, lng: null });
+
+  // 화면 표시에만 쓰는 대표명(서버에는 전송 안 함)
+  const [ownerNameDisplay, setOwnerNameDisplay] = useState(loginDisplayName);
 
   const [addrModalOpen, setAddrModalOpen] = useState(false);
 
@@ -44,15 +51,21 @@ function Inner() {
   const normalizeBizNo = (raw) => (raw || "").replace(/[^0-9]/g, "");
   const isValidBizNo = (raw) => normalizeBizNo(raw).length === 10;
 
-  // ✅ 수정 모드: 기존 매장 로드
+  // 로그인 이름이 바뀌면 표시값 보정(등록 모드 기준)
+  useEffect(() => {
+    if (!isEdit) setOwnerNameDisplay((prev) => prev || loginDisplayName);
+  }, [isEdit, loginDisplayName]);
+
+  // ✅ 수정 모드: 기존 매장 로드 (표시는 기존값 우선, 없으면 로그인 이름)
   useEffect(() => {
     let alive = true;
 
-    // id가 없으면 API 호출하지 않고 안내만
     if (!isEdit) {
       setLoadingExisting(false);
       setLoadError("");
-      return () => { alive = false; };
+      return () => {
+        alive = false;
+      };
     }
 
     (async () => {
@@ -64,7 +77,6 @@ function Inner() {
         if (!alive) return;
 
         setShopName(data?.name || "");
-        setBossName(data?.ownerName || data?.bossName || "");
         setShopNum(data?.businessNumber || "");
         setAddr(data?.address || "");
         setSelectValue(
@@ -79,6 +91,10 @@ function Inner() {
           lat: typeof lat === "number" ? lat : (lat ? Number(lat) : null),
           lng: typeof lng === "number" ? lng : (lng ? Number(lng) : null),
         });
+
+        // 화면 표시에만 사용 (PUT/POST 전송 안 함)
+        const fromStore = data?.ownerName || data?.bossName || "";
+        setOwnerNameDisplay(fromStore || loginDisplayName || "");
       } catch (e) {
         const status = e?.response?.status;
         const msg =
@@ -88,7 +104,6 @@ function Inner() {
         setLoadError(
           `[${status ?? "ERR"}] ${msg} (요청: /itda/stores/${id})`
         );
-        // 디버깅 도움
         // eslint-disable-next-line no-console
         console.warn("load store failed:", e);
       } finally {
@@ -96,15 +111,16 @@ function Inner() {
       }
     })();
 
-  
-    return () => { alive = false; };
-  }, [id, isEdit]);
+    return () => {
+      alive = false;
+    };
+  }, [id, isEdit, loginDisplayName]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage(null);
 
-    if (!shopName.trim() || !bossName.trim() || !shopNum.trim() || !addr.trim() || selectValue === "") {
+    if (!shopName.trim() || !shopNum.trim() || !addr.trim() || selectValue === "") {
       setMessage({ type: "error", text: "모든 항목을 입력해주세요." });
       return;
     }
@@ -116,10 +132,10 @@ function Inner() {
       return;
     }
 
+    
     const payload = {
       name: shopName.trim(),
       category: Number(selectValue),
-      ownerName: bossName.trim(),
       businessNumber: normalizeBizNo(shopNum),
       address: addr.trim(),
       latitude: latLng.lat,
@@ -133,16 +149,17 @@ function Inner() {
         : await api.post("/itda/stores", payload);
 
       const okMsg =
-        resp?.data?.message || (isEdit ? "수정이 완료되었습니다." : "등록이 완료되었습니다.");
+        resp?.data?.message ||
+        (isEdit ? "수정이 완료되었습니다." : "등록이 완료되었습니다.");
       setMessage({ type: "success", text: okMsg });
 
       if (!isEdit) {
         setShopName("");
-        setBossName("");
         setShopNum("");
         setAddr("");
         setSelectValue("");
         setLatLng({ lat: null, lng: null });
+        // 등록 후에도 화면 표시용 대표명은 로그인 값 유지
       }
     } catch (err) {
       const msg =
@@ -155,12 +172,9 @@ function Inner() {
     }
   };
 
- 
-
   // 🖼 화면
   return (
     <>
-
       {isEdit && loadingExisting ? (
         <div className="loader">가게 정보를 불러오는 중…</div>
       ) : isEdit && loadError ? (
@@ -185,22 +199,34 @@ function Inner() {
               value={selectValue}
               onChange={(e) => setSelectValue(e.target.value)}
             >
-              <option value="" disabled hidden>업종</option>
-              {options.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+              <option value="" disabled hidden>
+                업종
+              </option>
+              {[
+                { value: 0, label: "카페" },
+                { value: 1, label: "식당" },
+                { value: 2, label: "기타" },
+              ].map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
               ))}
             </select>
           </div>
 
+          {/* 👇 대표명: 로그인 기준 읽기 전용 표시(전송/검증 없음) */}
           <div>
             <h2>대표명</h2>
             <input
-              className={`input ${bossName === "" ? "is-placeholder" : ""}`}
+              className="input"
               type="text"
-              value={bossName}
-              placeholder="대표명을 입력해주세요."
-              onChange={(e) => setBossName(e.target.value)}
+              value={ownerNameDisplay || ""}
+              readOnly
+              aria-readonly="true"
             />
+            <small style={{ color: "#666" }}>
+              로그인한 계정 정보 기준으로 자동 설정됩니다.
+            </small>
           </div>
 
           <div>
@@ -226,25 +252,41 @@ function Inner() {
                 readOnly
                 onClick={() => setAddrModalOpen(true)}
               />
-              <button type="button" className="btn" onClick={() => setAddrModalOpen(true)}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setAddrModalOpen(true)}
+              >
                 주소 선택
               </button>
             </div>
             {latLng.lat != null && latLng.lng != null && (
               <small style={{ color: "#666" }}>
-                선택 좌표: {Number(latLng.lat).toFixed(6)}, {Number(latLng.lng).toFixed(6)}
+                선택 좌표: {Number(latLng.lat).toFixed(6)},{" "}
+                {Number(latLng.lng).toFixed(6)}
               </small>
             )}
           </div>
 
           <div style={{ marginTop: 16 }}>
             <button type="submit" className="btn" disabled={submitting}>
-              {submitting ? (isEdit ? "수정 중..." : "등록 중...") : (isEdit ? "수정 완료" : "완료")}
+              {submitting
+                ? isEdit
+                  ? "수정 중..."
+                  : "등록 중..."
+                : isEdit
+                ? "수정 완료"
+                : "완료"}
             </button>
           </div>
 
           {message && (
-            <p className={`message ${message.type === "error" ? "error" : "success"}`} style={{ marginTop: 8 }}>
+            <p
+              className={`message ${
+                message.type === "error" ? "error" : "success"
+              }`}
+              style={{ marginTop: 8 }}
+            >
               {message.text}
             </p>
           )}

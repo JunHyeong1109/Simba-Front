@@ -7,7 +7,6 @@ function RewardCount() {
   const handleChange = (e) => {
     const v = e.target.value === "" ? "" : Number(e.target.value);
     setCount(v);
-    if (v !== "") console.log(v);
   };
 
   return (
