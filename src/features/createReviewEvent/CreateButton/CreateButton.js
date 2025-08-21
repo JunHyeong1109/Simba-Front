@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../api";
 import "./CreateButton.css";
 
-
 /** JSON 전용 옵션(다른 JSON API에서 사용 가능) */
 export const JSON_HDR = {
   withCredentials: true,
@@ -75,6 +74,14 @@ export default function CreateButton({ collect, posterFile }) {
     if (!title) return alert("제목을 입력하세요.");
     if (!storeId) return alert("매장을 선택하세요.");
 
+    // 🔹 리워드 컨텐츠(내용): collect 우선, 없으면 hidden 백업
+    const rewardContent = String(
+      (data.rewardContent ?? readHidden("event-reward-content")) || ""
+    ).trim();
+
+    // 필요 시 필수 처리
+    // if (!rewardContent) return alert("리워드 내용을 입력하세요.");
+
     // 날짜: collect → hidden(-at → 구 id) 순서로 확보
     const hiddenStart = readHidden("event-start-at") || readHidden("event-start");
     const hiddenEnd   = readHidden("event-end-at")   || readHidden("event-end");
@@ -101,6 +108,7 @@ export default function CreateButton({ collect, posterFile }) {
         storeId,
         lat: data.lat ?? null,
         lng: data.lng ?? null,
+        rewardContent, // 🔹 리워드 내용 포함
       };
       if (rewardCountVal !== null) requestPayload.rewardCount = rewardCountVal;
 
