@@ -69,17 +69,22 @@ export default function CreateButton({ collect, posterFile }) {
     }
 
     const title = String(data.title ?? "").trim();
-    const description = String((data.desc ?? data.description ?? readHidden("event-desc")) || "");
+
+    // ✅ EventContent → description
+    //    1순위 collect.description, 2순위 hidden(#event-desc)
+    const description = String((data.description ?? readHidden("event-desc")) || "").trim();
+
     const storeId = Number(data.storeId || 0);
     if (!title) return alert("제목을 입력하세요.");
     if (!storeId) return alert("매장을 선택하세요.");
 
-    // 🔹 리워드 컨텐츠(내용): collect 우선, 없으면 hidden 백업
+    // ✅ RewardContent → rewardContent
+    //    1순위 collect.rewardContent, 2순위 hidden(#event-reward-content)
     const rewardContent = String(
       (data.rewardContent ?? readHidden("event-reward-content")) || ""
     ).trim();
 
-    // 날짜: collect → hidden(-at → 구 id) 순서로 확보
+    // 날짜: collect → hidden(-at → 구 id) 순서로 확보(기존 호환)
     const hiddenStart = readHidden("event-start-at") || readHidden("event-start");
     const hiddenEnd   = readHidden("event-end-at")   || readHidden("event-end");
 
@@ -108,13 +113,16 @@ export default function CreateButton({ collect, posterFile }) {
       // ✅ 서버 DTO로 받을 JSON(= @RequestPart("request"))
       const requestPayload = {
         title,
-        description,
-        startAt,  // ISO-8601 (예: "2025-08-21T17:00:00.000Z")
-        endAt,    // ISO-8601 (예: "2025-08-24T18:00:00.000Z")
+        description,   // ✅ EventContent 값
+        startAt,       // ISO-8601
+        endAt,         // ISO-8601
         storeId,
+
+        // ✅ lat/lng는 collect에서 이미 숫자 변환됨 (null 허용)
         lat: data.lat ?? null,
         lng: data.lng ?? null,
-        rewardContent, // 🔹 리워드 내용 포함
+
+        rewardContent, // ✅ RewardContent 값
       };
       if (rewardCountVal !== null) requestPayload.rewardCount = rewardCountVal;
 

@@ -7,9 +7,17 @@ import "./UserMyPage.css";
 // 바우처 필터 탭 순서 (전체를 맨 앞에)
 const FILTERS = ["ALL", "ISSUED", "USED", "EXPIRED"];
 
+// (선택) 공통 옵션: 세션 쿠키 필요 시
+const WITH_CREDENTIALS = { withCredentials: true };
+
 export default function MyPage() {
   const outletCtx = useOutletContext();
-  const [user, setUser] = useState(outletCtx?.user || null);
+
+  // ✅ 컨텍스트에 id가 있는 경우에만 초기 user로 인정
+  const initialUser = outletCtx?.user?.id ? outletCtx.user : null;
+
+  const [user, setUser] = useState(initialUser);
+  const [loadingUser, setLoadingUser] = useState(!initialUser);
 
   // 리뷰
   const [reviews, setReviews] = useState([]);
@@ -20,47 +28,53 @@ export default function MyPage() {
   const [loadingVouchers, setLoadingVouchers] = useState(false);
   const [voucherFilter, setVoucherFilter] = useState("ISSUED");
 
-  // 유저
-  const [loadingUser, setLoadingUser] = useState(!outletCtx?.user);
-
   const email = user?.email || "";
   const initial = (user?.name || user?.email || "U").toString().slice(0, 1).toUpperCase();
   const displayName = user?.username || user?.name || user?.email || "사용자";
 
-  // 유저 확보 (mock 제거)
+  // ✅ 유저 확보: id가 없으면 항상 /itda/me 호출
   useEffect(() => {
     let alive = true;
+
     (async () => {
       try {
-        if (outletCtx?.user) {
+        // 컨텍스트에 id 가진 유저가 생기면 그대로 사용
+        if (outletCtx?.user?.id) {
           if (alive) {
             setUser(outletCtx.user);
             setLoadingUser(false);
           }
           return;
         }
+
         setLoadingUser(true);
-        const { data } = await api.get("/itda/me");
-        if (alive) setUser(data || null);
+        const { data } = await api.get("/itda/me", WITH_CREDENTIALS);
+        if (alive) setUser(data?.id ? data : null);
       } catch {
         if (alive) setUser(null);
       } finally {
         if (alive) setLoadingUser(false);
       }
     })();
+
     return () => {
       alive = false;
     };
-  }, [outletCtx?.user]);
+    // 🔑 id가 생기면 이 effect가 멈추도록 user id 기준으로 의존성 설정
+  }, [outletCtx?.user?.id]);
 
-  // 리뷰 로드 (mock 제거)
+  // 리뷰 로드
   useEffect(() => {
     if (!user?.id) return;
     let alive = true;
+
     (async () => {
       try {
         setLoadingReviews(true);
-        const { data } = await api.get("/itda/reviews", { params: { userId: user.id } });
+        const { data } = await api.get("/itda/reviews", {
+          params: { userId: user.id },
+          ...WITH_CREDENTIALS,
+        });
         if (alive) setReviews(Array.isArray(data) ? data : data?.items || []);
       } catch {
         if (alive) setReviews([]);
@@ -68,6 +82,7 @@ export default function MyPage() {
         if (alive) setLoadingReviews(false);
       }
     })();
+
     return () => {
       alive = false;
     };
@@ -99,7 +114,7 @@ export default function MyPage() {
         const results = await Promise.all(
           statusList.map((f) =>
             api
-              .get("/itda/me/vouchers", { params: { filter: f } })
+              .get("/itda/me/vouchers", { params: { filter: f }, ...WITH_CREDENTIALS })
               .then(({ data }) => (Array.isArray(data) ? data : data?.items || []))
               .catch(() => [])
           )
@@ -114,7 +129,10 @@ export default function MyPage() {
         });
         setVouchers(normalize(deduped, "ALL"));
       } else {
-        const { data } = await api.get("/itda/me/vouchers", { params: { filter: effective } });
+        const { data } = await api.get("/itda/me/vouchers", {
+          params: { filter: effective },
+          ...WITH_CREDENTIALS,
+        });
         const list = Array.isArray(data) ? data : data?.items || [];
         setVouchers(normalize(list, effective));
       }
@@ -155,7 +173,7 @@ export default function MyPage() {
     if (!window.confirm("이 바우처를 사용 처리하시겠습니까?")) return;
 
     try {
-      await api.patch(`/itda/me/vouchers/${voucherId}/use`);
+      await api.patch(`/itda/me/vouchers/${voucherId}/use`, null, WITH_CREDENTIALS);
       fetchVouchers(voucherFilter);
     } catch (e) {
       const msg =
@@ -267,7 +285,7 @@ export default function MyPage() {
                   <article key={v.id} className="mypage-card mypage-reward">
                     {/* 왼쪽: (칩 + 본문) 묶음 */}
                     <div className="mypage-reward-left">
-                      {/* 상태 칩 (ALL에서는 각 항목 고유 상태 칩 노출) */}
+                      {/* 상태 칩 */}
                       <div className={`mypage-chip ${meta.chip}`}>
                         {statusMeta[v.status]?.label ?? meta.label}
                       </div>
@@ -283,7 +301,7 @@ export default function MyPage() {
                       </div>
                     </div>
 
-                    {/* 오른쪽: '사용 처리' 버튼 (발급 상태에서만 표시) */}
+                    {/* 발급 상태에서만 '사용 처리' 제공 */}
                     {v.status === "ISSUED" && (
                       <button
                         type="button"
