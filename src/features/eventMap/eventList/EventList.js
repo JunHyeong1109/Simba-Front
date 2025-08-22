@@ -1,18 +1,20 @@
 // src/features/eventMap/eventList/EventList.js
 import React, { useEffect, useState } from "react";
-import api from "../../../api"; // 프로젝트 구조에 맞게 경로 확인
+import api from "../../../api";
 import "./EventList.css";
 
 function EventList({
-  status = "joinable", // "joinable" | "SCHEDULED" | "ONGOING" | "ENDED"
-  storeId,             // 특정 매장만 보고 싶을 때
-  onSelect,            // 카드 클릭 시 onSelect({ mission, lat, lng })
+  status = "joinable",
+  storeId,
+  onSelect,
 }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // 날짜 헬퍼 & 상태 판별
+  // ⬇ 추가: 매장 요약 캐시 (storeId -> summary)
+  const [summariesByStoreId, setSummariesByStoreId] = useState({});
+
   const toDate = (v) => {
     if (!v) return null;
     const d = new Date(v);
@@ -27,7 +29,6 @@ function EventList({
     return !!(start && start > now);
   };
   const isOngoing = (m, now = new Date()) => {
-    // 시작일이 미래가 아니고, 종료일이 지났지 않으면 진행중으로 간주
     return !isScheduled(m, now) && !isExpired(m, now);
   };
 
@@ -40,14 +41,11 @@ function EventList({
         const statusParam = (status ?? "").toString();
         const statusUpper = statusParam.toUpperCase();
 
-        // 1) 서버 요청 URL 구성
         let url = "";
         if (statusParam === "joinable") {
           url = "/itda/missions/joinable";
         } else if (storeId && statusParam) {
-          url = `/itda/missions?storeId=${storeId}&status=${encodeURIComponent(
-            statusUpper
-          )}`;
+          url = `/itda/missions?storeId=${storeId}&status=${encodeURIComponent(statusUpper)}`;
         } else if (storeId) {
           url = `/itda/missions?storeId=${storeId}`;
         } else if (statusParam) {
@@ -60,7 +58,6 @@ function EventList({
         const list = Array.isArray(data) ? data : data?.items || [];
         if (!alive) return;
 
-        // 2) 좌표 숫자화
         const normalized = list.map((m) => {
           const s = m.store || {};
           const toNum = (v) =>
@@ -73,13 +70,13 @@ function EventList({
             ...m,
             _store: {
               ...s,
+              id: s.id ?? m.storeId,         // ⬅ id를 명시적으로 보정
               latitude: toNum(s.latitude),
               longitude: toNum(s.longitude),
             },
           };
         });
 
-        // 3) 클라이언트 측 필터 (서버 신뢰 + 보강)
         const now = new Date();
         let out = normalized;
 
@@ -90,15 +87,46 @@ function EventList({
         } else if (statusUpper === "ENDED") {
           out = normalized.filter((m) => isExpired(m, now));
         } else if (storeId && !statusParam) {
-          // 메인/매장 전용: status 미지정이면 만료 숨김
           out = normalized.filter((m) => isOngoing(m, now));
         }
 
+        if (!alive) return;
         setItems(out);
+
+        // ⬇ 고유 매장 id 수집 후 summary 병렬 로드
+        const ids = Array.from(
+          new Set(
+            out
+              .map((m) => m._store?.id ?? m.storeId)
+              .filter((id) => id !== undefined && id !== null)
+          )
+        );
+
+        if (ids.length > 0) {
+          const results = await Promise.allSettled(
+            ids.map(async (id) => {
+              const { data: sum } = await api.get(`/itda/stores/${id}/summary`);
+              const text = typeof sum === "string" ? sum : (sum?.summary ?? "");
+              return { id, summary: text };
+            })
+          );
+          if (!alive) return;
+
+          const map = {};
+          for (const r of results) {
+            if (r.status === "fulfilled" && r.value) {
+              map[r.value.id] = r.value.summary;
+            }
+          }
+          setSummariesByStoreId(map);
+        } else {
+          setSummariesByStoreId({});
+        }
       } catch (e) {
         if (!alive) return;
         setErr(e?.response?.data?.message || "미션 목록을 불러오지 못했습니다.");
         setItems([]);
+        setSummariesByStoreId({});
       } finally {
         if (alive) setLoading(false);
       }
@@ -140,7 +168,10 @@ function EventList({
         <ul className="event-list-grid">
           {items.map((m) => {
             const poster = getPoster(m);
-            const storeName = m?.store?.name || m?.storeName || "";
+            const store = m?.store || {};
+            const storeName = store.name || m?.storeName || "";
+            const storeIdForSum = m?._store?.id ?? m.storeId;
+            const summary = summariesByStoreId[storeIdForSum] || "";
             const start = m?.startAt || m?.startDate;
             const end = m?.endAt || m?.endDate;
 
@@ -160,9 +191,18 @@ function EventList({
                 </div>
                 <div className="event-card-body">
                   <div className="event-card-title">{m.title || "미션"}</div>
+
                   {storeName && (
                     <div className="event-card-store">{storeName}</div>
                   )}
+
+                  {/* ⬇ 매장 summary 추가 */}
+                  {summary && (
+                    <div className="event-card-summary" title={summary}>
+                      {summary}
+                    </div>
+                  )}
+
                   {(start || end) && (
                     <div className="event-card-dates">
                       {fmtDate(start)} ~ {fmtDate(end)}

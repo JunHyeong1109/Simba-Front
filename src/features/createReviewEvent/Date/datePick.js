@@ -17,7 +17,7 @@ const toLocalMinuteSQL = (d) =>
     ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
     : "";
 
-// 서버/호환용: yyyy-MM-ddTHH:mm:ss.SSS  (Z 없음, UTC 변환 없음)
+// 서버/호환용: yyyy-MM-ddTHH:mm:ss.SSS (Z 없음, UTC 변환 없음)
 const toLocalISOString = (d) => {
   if (!(d instanceof Date) || isNaN(d?.valueOf())) return "";
   const yyyy = d.getFullYear();
@@ -34,36 +34,30 @@ function DatePick() {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
-  // 오늘 00:00 (로컬)
   const today = startOfDay(new Date());
   const now = new Date();
 
   const isValidDate = (d) => d instanceof Date && !isNaN(d?.valueOf());
 
-  // hidden 값 쓰기
   const writeHidden = (id, value) => {
     const el = document.getElementById(id);
     if (el) el.value = value ?? "";
   };
 
-  // 두 가지 포맷 동시 기록
   const writeBoth = (baseId, date) => {
-    writeHidden(`${baseId}-at`, toLocalISOString(date));  // event-start-at / event-end-at
-    writeHidden(baseId, toLocalMinuteSQL(date));          // event-start    / event-end
+    writeHidden(`${baseId}-at`, toLocalISOString(date));
+    writeHidden(baseId, toLocalMinuteSQL(date));
   };
 
   const handleStartChange = (date) => {
     if (!isValidDate(date)) {
       setStartDate(null);
       writeBoth("event-start", null);
-      // 시작이 없어지면 종료도 제한 해제
       return;
     }
 
-    // 과거 보정: 과거 날짜면 오늘 00:00으로 교정
-    let nextStart = isBefore(date, today) ? today : date;
+    const nextStart = isBefore(date, today) ? today : date;
 
-    // 종료가 시작보다 빠르면 종료 = 시작으로 맞춤
     if (endDate && isBefore(endDate, nextStart)) {
       setEndDate(nextStart);
       writeBoth("event-end", nextStart);
@@ -87,19 +81,33 @@ function DatePick() {
     writeBoth("event-end", nextEnd);
   };
 
-  // 종료 최소일 = 시작일이 있으면 그 날/이후, 없으면 오늘
   const endMinDate = startDate || today;
 
-  // 같은 날 선택 시, 최소 시간 제약(오늘을 선택하면 현재 시각 이후만 허용)
-  const startMinTime =
-    startDate && isSameDay(startDate, today) ? now : new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+  // ---- 시간 경계 계산 (둘 다 넘기거나 둘 다 생략) ----
+  // 시작 피커: 오늘 날짜를 고르고 있을 때만 현재시간~23:59 제한
+  const startHasBounds = isValidDate(startDate) && isSameDay(startDate, today);
+  const startMinTimeProp = startHasBounds ? now : undefined;
+  const startMaxTimeProp = startHasBounds ? new Date(1970, 0, 1, 23, 59, 59, 999) : undefined;
 
-  const endMinTime =
-    endDate && startDate && isSameDay(endDate, startDate)
-      ? startDate
-      : endDate && isSameDay(endDate, today)
-      ? now
-      : new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+  // 종료 피커:
+  // 1) 종료=시작 같은 날 → 시작시간~23:59
+  // 2) 종료가 오늘 → 현재시간~23:59
+  // 그 외에는 시간 제한 안 줌(둘 다 미전달)
+  const endSameDayAsStart =
+    isValidDate(endDate) && isValidDate(startDate) && isSameDay(endDate, startDate);
+  const endIsToday = isValidDate(endDate) && isSameDay(endDate, today);
+
+  let endMinTimeProp, endMaxTimeProp;
+  if (endSameDayAsStart) {
+    endMinTimeProp = startDate;
+    endMaxTimeProp = new Date(1970, 0, 1, 23, 59, 59, 999);
+  } else if (endIsToday) {
+    endMinTimeProp = now;
+    endMaxTimeProp = new Date(1970, 0, 1, 23, 59, 59, 999);
+  } else {
+    endMinTimeProp = undefined;
+    endMaxTimeProp = undefined;
+  }
 
   return (
     <div className="global-fix">
@@ -122,9 +130,9 @@ function DatePick() {
           startDate={startDate}
           endDate={endDate}
           minDate={today}
-          // 같은 날이면 현재 시각 이후만 선택 가능
-          minTime={isValidDate(startDate) && isSameDay(startDate, today) ? startMinTime : undefined}
-          maxTime={new Date(0, 0, 0, 23, 59)}
+          /* ⬇ 둘 다 전달 또는 둘 다 생략 */
+          minTime={startMinTimeProp}
+          maxTime={startMaxTimeProp}
           onChange={handleStartChange}
           withPortal
           popperPlacement="bottom-start"
@@ -143,15 +151,9 @@ function DatePick() {
           startDate={startDate}
           endDate={endDate}
           minDate={endMinDate}
-          // 같은 날이면 시작시간 이후만 선택 가능
-          minTime={
-            isValidDate(endDate) && isValidDate(startDate) && isSameDay(endDate, startDate)
-              ? startDate
-              : isValidDate(endDate) && isSameDay(endDate, today)
-              ? endMinTime
-              : undefined
-          }
-          maxTime={new Date(0, 0, 0, 23, 59)}
+          /* ⬇ 둘 다 전달 또는 둘 다 생략 */
+          minTime={endMinTimeProp}
+          maxTime={endMaxTimeProp}
           onChange={handleEndChange}
           withPortal
           popperPlacement="bottom-start"
