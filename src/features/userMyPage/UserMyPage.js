@@ -1,7 +1,11 @@
+// src/pages/MyPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import api from "../../api";
 import "./UserMyPage.css";
+
+// 바우처 필터 탭 순서 (전체를 맨 앞에)
+const FILTERS = ["ALL", "ISSUED", "USED", "EXPIRED"];
 
 export default function MyPage() {
   const outletCtx = useOutletContext();
@@ -14,7 +18,7 @@ export default function MyPage() {
   // 바우처
   const [vouchers, setVouchers] = useState([]);
   const [loadingVouchers, setLoadingVouchers] = useState(false);
-  const [voucherFilter, setVoucherFilter] = useState("ISSUED"); // ISSUED | USED | EXPIRED
+  const [voucherFilter, setVoucherFilter] = useState("ISSUED");
 
   // 유저
   const [loadingUser, setLoadingUser] = useState(!outletCtx?.user);
@@ -23,7 +27,7 @@ export default function MyPage() {
   const initial = (user?.name || user?.email || "U").toString().slice(0, 1).toUpperCase();
   const displayName = user?.username || user?.name || user?.email || "사용자";
 
-  // 유저 확보
+  // 유저 확보 (mock 제거)
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -44,10 +48,12 @@ export default function MyPage() {
         if (alive) setLoadingUser(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [outletCtx?.user]);
 
-  // 리뷰 로드
+  // 리뷰 로드 (mock 제거)
   useEffect(() => {
     if (!user?.id) return;
     let alive = true;
@@ -62,31 +68,56 @@ export default function MyPage() {
         if (alive) setLoadingReviews(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [user?.id]);
 
-  // 바우처 로드 함수
+  // 바우처 로드 함수 (ALL은 클라이언트에서 3상태 병합)
   const fetchVouchers = async (filter) => {
     if (!user?.id) return;
     setLoadingVouchers(true);
-    try {
-      const { data } = await api.get("/itda/me/vouchers", {
-        params: { filter: (filter || voucherFilter) || "ISSUED" },
-      });
-      const list = Array.isArray(data) ? data : data?.items || [];
 
-      // 응답 필드 정규화
-      const normalized = list.map((v) => {
+    const normalize = (list, assumedFilter) =>
+      list.map((v) => {
         const storeName = v.storeName || v.store?.name || "";
         const title = v.title || v.name || "바우처";
         const id = v.id ?? v.voucherId ?? v.uuid ?? v.code;
-        const status = (v.status || filter || "ISSUED").toString().toUpperCase();
+        const status =
+          assumedFilter === "ALL"
+            ? (v.vstatus || v.status || "ISSUED").toString().toUpperCase()
+            : (v.vstatus || assumedFilter || "ISSUED").toString().toUpperCase();
         const start = v.startAt || v.startDate || v.validFrom || v.validFromAt || null;
-        const end   = v.endAt   || v.endDate   || v.validTo   || v.validToAt   || null;
+        const end = v.endAt || v.endDate || v.validTo || v.validToAt || null;
         return { ...v, id, storeName, title, status, start, end };
       });
 
-      setVouchers(normalized);
+    try {
+      const effective = filter || voucherFilter || "ISSUED";
+      if (effective === "ALL") {
+        const statusList = ["ISSUED", "USED", "EXPIRED"];
+        const results = await Promise.all(
+          statusList.map((f) =>
+            api
+              .get("/itda/me/vouchers", { params: { filter: f } })
+              .then(({ data }) => (Array.isArray(data) ? data : data?.items || []))
+              .catch(() => [])
+          )
+        );
+        const merged = [...results[0], ...results[1], ...results[2]];
+        const seen = new Set();
+        const deduped = merged.filter((v) => {
+          const vid = v.id ?? v.voucherId ?? v.uuid ?? v.code;
+          if (seen.has(vid)) return false;
+          seen.add(vid);
+          return true;
+        });
+        setVouchers(normalize(deduped, "ALL"));
+      } else {
+        const { data } = await api.get("/itda/me/vouchers", { params: { filter: effective } });
+        const list = Array.isArray(data) ? data : data?.items || [];
+        setVouchers(normalize(list, effective));
+      }
     } catch {
       setVouchers([]);
     } finally {
@@ -94,19 +125,21 @@ export default function MyPage() {
     }
   };
 
-  // 바우처 로드 (필터 변경/유저 준비 후)
   useEffect(() => {
     if (!user?.id) return;
     fetchVouchers(voucherFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, voucherFilter]);
 
-  // 상태 라벨/칩 클래스
-  const statusMeta = useMemo(() => ({
-    ISSUED:  { label: "발급됨",  chip: "success" },
-    USED:    { label: "사용됨",  chip: "warn" },
-    EXPIRED: { label: "만료됨",  chip: "muted" },
-  }), []);
+  const statusMeta = useMemo(
+    () => ({
+      ALL: { label: "전체", chip: "" },
+      ISSUED: { label: "발급", chip: "success" },
+      USED: { label: "사용", chip: "warn" },
+      EXPIRED: { label: "만료", chip: "muted" },
+    }),
+    []
+  );
 
   const fmtDate = (d) => {
     if (!d) return "-";
@@ -117,17 +150,16 @@ export default function MyPage() {
     return String(d).slice(0, 10);
   };
 
-  // 바우처 사용 처리
   const handleUseVoucher = async (voucherId) => {
     if (!voucherId) return;
     if (!window.confirm("이 바우처를 사용 처리하시겠습니까?")) return;
 
     try {
       await api.patch(`/itda/me/vouchers/${voucherId}/use`);
-      // 성공 후 목록 갱신 (현재 필터 유지)
-      fetchVouchers();
+      fetchVouchers(voucherFilter);
     } catch (e) {
-      const msg = e?.response?.data?.message || e?.message || "사용 처리 중 오류가 발생했습니다.";
+      const msg =
+        e?.response?.data?.message || e?.message || "사용 처리 중 오류가 발생했습니다.";
       alert(msg);
     }
   };
@@ -143,7 +175,9 @@ export default function MyPage() {
             <span className="mypage-user-name">{displayName}</span>
             {email && <span className="mypage-user-mail">{email}</span>}
           </div>
-          <div className="mypage-avatar" aria-hidden>{initial}</div>
+          <div className="mypage-avatar" aria-hidden>
+            {initial}
+          </div>
         </div>
       </header>
 
@@ -168,29 +202,26 @@ export default function MyPage() {
                 <article key={review.id} className="mypage-card">
                   {/* 가게 정보 */}
                   <div className="mypage-store">
-                    <div className="mypage-store-thumb" aria-hidden>📷</div>
+                    <div className="mypage-store-thumb" aria-hidden>
+                      📷
+                    </div>
                     <div className="mypage-store-info">
                       <div className="mypage-store-name">{review.storeName}</div>
-                      {review.address && (
-                        <div className="mypage-store-addr" title={review.address}>
-                          {review.address}
-                        </div>
-                      )}
-                      {review.category && (
-                        <div className="mypage-store-cat">{review.category}</div>
-                      )}
                     </div>
                   </div>
 
                   {/* 리뷰 내용 */}
                   <div className="mypage-review">
-                    <div className="mypage-avatar sm" aria-hidden>👤</div>
+                    <div className="mypage-avatar sm" aria-hidden>
+                      👤
+                    </div>
                     <div className="mypage-review-body">
                       <div className="mypage-review-meta">
                         <span className="mypage-review-author">{displayName}</span>
-                        {review.date && <time className="mypage-review-date">{review.date}</time>}
                       </div>
-                      {review.text && <p className="mypage-review-text">{review.text}</p>}
+                      {review.content && (
+                        <p className="mypage-review-text">{review.content}</p>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -204,9 +235,9 @@ export default function MyPage() {
           <div className="mypage-section-head">
             <h2 className="mypage-section-title">바우처 목록</h2>
 
-            {/* 필터 탭 */}
+            {/* 탭: 전체 | 발급 | 사용 | 만료 */}
             <div className="mypage-tabs" role="tablist" aria-label="바우처 상태 필터">
-              {["ISSUED", "USED", "EXPIRED"].map((key) => (
+              {FILTERS.map((key) => (
                 <button
                   key={key}
                   type="button"
@@ -234,29 +265,34 @@ export default function MyPage() {
                 const meta = statusMeta[v.status] || statusMeta.ISSUED;
                 return (
                   <article key={v.id} className="mypage-card mypage-reward">
-                    <div className={`mypage-chip ${meta.chip}`}>{meta.label}</div>
-
-                    <div className="mypage-reward-body">
-                      <div className="mypage-reward-title">
-                        {v.storeName ? `[${v.storeName}] ` : ""}{v.title}
+                    {/* 왼쪽: (칩 + 본문) 묶음 */}
+                    <div className="mypage-reward-left">
+                      {/* 상태 칩 (ALL에서는 각 항목 고유 상태 칩 노출) */}
+                      <div className={`mypage-chip ${meta.chip}`}>
+                        {statusMeta[v.status]?.label ?? meta.label}
                       </div>
-                      <div className="mypage-reward-period">
-                        사용기간: {fmtDate(v.start)} ~ {fmtDate(v.end)}
+
+                      <div className="mypage-reward-body">
+                        <div className="mypage-reward-title">
+                          {v.storeName ? `[${v.storeName}] ` : ""}
+                          {v.title}
+                        </div>
+                        <div className="mypage-reward-period">
+                          사용기간: {fmtDate(v.start)} ~ {fmtDate(v.end)}
+                        </div>
                       </div>
                     </div>
 
-                    {/* ISSUED 상태에서만 사용 버튼 노출 */}
+                    {/* 오른쪽: '사용 처리' 버튼 (발급 상태에서만 표시) */}
                     {v.status === "ISSUED" && (
-                      <div style={{ marginLeft: "auto" }}>
-                        <button
-                          type="button"
-                          className="mypage-btn use"
-                          onClick={() => handleUseVoucher(v.id)}
-                          title="바우처 사용 처리"
-                        >
-                          사용 처리
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        className="mypage-btn use"
+                        onClick={() => handleUseVoucher(v.id)}
+                        title="바우처 사용 처리"
+                      >
+                        사용 처리
+                      </button>
                     )}
                   </article>
                 );

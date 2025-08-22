@@ -79,14 +79,20 @@ export default function CreateButton({ collect, posterFile }) {
       (data.rewardContent ?? readHidden("event-reward-content")) || ""
     ).trim();
 
-    // 필요 시 필수 처리
-    // if (!rewardContent) return alert("리워드 내용을 입력하세요.");
-
     // 날짜: collect → hidden(-at → 구 id) 순서로 확보
     const hiddenStart = readHidden("event-start-at") || readHidden("event-start");
     const hiddenEnd   = readHidden("event-end-at")   || readHidden("event-end");
-    const startAt = toMinuteString(data.startAt) || toMinuteString(hiddenStart);
-    const endAt   = toMinuteString(data.endAt)   || toMinuteString(hiddenEnd);
+
+    // ✅ 백엔드(LocalDateTime 등)에서 안전하게 파싱되도록 ISO-8601로 변환
+    const toISOOrNull = (v) => {
+      const raw = toMinuteString(v);
+      const d = parseToLocalDate(raw);
+      return d ? new Date(d).toISOString() : null; // 예: "2025-08-21T17:00:00.000Z"
+    };
+
+    const startAt = toISOOrNull(data.startAt) || toISOOrNull(hiddenStart);
+    const endAt   = toISOOrNull(data.endAt)   || toISOOrNull(hiddenEnd);
+
     if (!startAt || !endAt) {
       alert("시작/종료 일시를 선택하세요.");
       return;
@@ -103,8 +109,8 @@ export default function CreateButton({ collect, posterFile }) {
       const requestPayload = {
         title,
         description,
-        startAt,  // 'yyyy-MM-dd HH:mm'
-        endAt,    // 'yyyy-MM-dd HH:mm'
+        startAt,  // ISO-8601 (예: "2025-08-21T17:00:00.000Z")
+        endAt,    // ISO-8601 (예: "2025-08-24T18:00:00.000Z")
         storeId,
         lat: data.lat ?? null,
         lng: data.lng ?? null,

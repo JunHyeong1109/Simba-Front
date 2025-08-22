@@ -218,11 +218,20 @@
 }
 
 /* ---- Reward ---- */
+/* ✅ grid → flex로 변경하여 좌우 분리, 칩이 늘어나지 않게 */
 .mypage-reward {
-  display: grid;
-  grid-template-columns: auto 1fr;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 10px;
-  align-items: start;
+}
+
+/* ✅ 왼쪽 묶음: 칩 + 본문 */
+.mypage-reward-left {
+  display: flex;
+  flex-direction: column;  /* 칩 위, 본문 아래 */
+  gap: 6px;
+  min-width: 0;            /* 본문 줄바꿈 안정화 */
 }
 
 .mypage-reward-body {
@@ -240,25 +249,45 @@
 }
 
 /* ---- Chips ---- */
+/* ✅ 공통 크기 통일 (한글/영문 상관없이 균일) */
 .mypage-chip {
+  /* 사이즈는 텍스트+패딩으로 자동 결정 */
+  display: inline-block;         /* inline-flex 보다 auto-size가 직관적 */
+  padding: 0.25rem 0.6rem;       /* 원하는 여백만 유지 */
+  border-radius: 999px;
+
+  /* 타이포 */
+  font-size: 13px;
+  line-height: 1.2;              /* 높이 자동, 세로 균형 */
+  font-weight: 600;
+  white-space: nowrap;           /* 줄바꿈 방지: 텍스트 길어도 한 줄 유지 */
+
+  /* 색 변수 */
   --chip-bg: #e5e7eb;
   --chip-color: #374151;
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
-  padding: 0 10px;
-  border-radius: 999px;
   background: var(--chip-bg);
   color: var(--chip-color);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
+
+  /* 부모 flex 영향 차단 */
+  flex: 0 0 auto;                /* 늘어나지 않게 */
+  align-self: flex-start;        /* 교차축으로도 안 늘어나게 */
 }
+
+/* ✅ 색상만 다르게 */
 .mypage-chip.success {
   --chip-bg: rgba(16, 185, 129, 0.18);
   --chip-color: #047857;
 }
+.mypage-chip.warn {
+  --chip-bg: rgba(245, 158, 11, 0.18);
+  --chip-color: #92400e;
+}
+.mypage-chip.muted {
+  --chip-bg: #eef2f7;
+  --chip-color: #6b7280;
+}
 
+/* --- 탭 --- */
 .mypage-tabs {
   display: inline-flex;
   gap: 8px;
@@ -276,16 +305,6 @@
   box-shadow: 0 0 0 2px rgba(59,130,246,.12);
 }
 
-/* --- 칩 색상 확장 --- */
-.mypage-chip.warn {
-  --chip-bg: rgba(245, 158, 11, 0.18);
-  --chip-color: #92400e;
-}
-.mypage-chip.muted {
-  --chip-bg: #eef2f7;
-  --chip-color: #6b7280;
-}
-
 /* --- 바우처 '사용 처리' 버튼 --- */
 .mypage-btn.use {
   background: #111827;
@@ -295,6 +314,8 @@
   padding: 8px 12px;
   font-size: 13px;
   cursor: pointer;
+  white-space: nowrap;      /* 버튼 줄바꿈 방지 */
+  flex-shrink: 0;           /* 버튼이 줄면서 왼쪽을 밀지 않게 */
 }
 .mypage-btn.use:hover {
   opacity: 0.92;

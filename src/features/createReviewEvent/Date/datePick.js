@@ -10,11 +10,15 @@ registerLocale("ko", ko);
 setDefaultLocale("ko");
 
 const pad2 = (n) => String(n).padStart(2, "0");
-// yyyy-MM-dd HH:mm (초 제거)
+// 로컬 표기용: yyyy-MM-dd HH:mm (초 제거)
 const toLocalMinuteSQL = (d) =>
   d instanceof Date && !isNaN(d?.valueOf())
     ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
     : "";
+
+// 서버 전송/호환용: ISO-8601(Z 포함)
+const toISOorEmpty = (d) =>
+  d instanceof Date && !isNaN(d?.valueOf()) ? new Date(d).toISOString() : "";
 
 function DatePick() {
   const [startDate, setStartDate] = useState(null);
@@ -22,48 +26,60 @@ function DatePick() {
 
   const today = startOfDay(new Date());
   const isValidDate = (d) => d instanceof Date && !isNaN(d?.valueOf());
+
+  // hidden 값 쓰기
   const writeHidden = (id, value) => {
     const el = document.getElementById(id);
     if (el) el.value = value ?? "";
   };
-  // 양쪽 id에 동시에 기록
-  const writeBoth = (baseId, value) => {
-    writeHidden(`${baseId}-at`, value); // event-start-at / event-end-at
-    writeHidden(baseId, value);         // event-start    / event-end
+
+  // ✅ 양쪽 id에 동시에 기록하되 형식을 분리:
+  // - *-at  : ISO-8601 (CreateButton이 우선 사용하도록)
+  // - 기본 id: 로컬 문자열(백업/표시/호환)
+  const writeBoth = (baseId, date) => {
+    writeHidden(`${baseId}-at`, toISOorEmpty(date));     // event-start-at / event-end-at (ISO)
+    writeHidden(baseId, toLocalMinuteSQL(date));         // event-start    / event-end    (로컬)
   };
 
   const handleStartChange = (date) => {
     if (!isValidDate(date)) {
       setStartDate(null);
-      writeBoth("event-start", "");
+      writeBoth("event-start", null);
       return;
     }
+
+    // 과거 선택 방지(시작일은 오늘 00:00 보다 이르면 today로)
     const nextStart = isBefore(date, today) ? today : date;
+
+    // 종료일이 시작일보다 이르면 시작일로 보정
     if (endDate && isBefore(endDate, nextStart)) {
       setEndDate(nextStart);
-      writeBoth("event-end", toLocalMinuteSQL(nextStart));
+      writeBoth("event-end", nextStart);
     }
+
     setStartDate(nextStart);
-    writeBoth("event-start", toLocalMinuteSQL(nextStart));
+    writeBoth("event-start", nextStart);
   };
 
   const handleEndChange = (date) => {
     if (!isValidDate(date)) {
       setEndDate(null);
-      writeBoth("event-end", "");
+      writeBoth("event-end", null);
       return;
     }
+
     const baseStart = startDate || today;
     const nextEnd = isBefore(date, baseStart) ? baseStart : date;
+
     setEndDate(nextEnd);
-    writeBoth("event-end", toLocalMinuteSQL(nextEnd));
+    writeBoth("event-end", nextEnd);
   };
 
   const endMin = startDate || today;
 
   return (
     <div className="global-fix">
-      {/* 양쪽 hidden을 모두 배치 (중복 방지: 이 컴포넌트가 한 번만 렌더된다는 전제) */}
+      {/* hidden 값: -at(ISO) / 기본(로컬) 모두 유지 */}
       <input type="hidden" id="event-start-at" />
       <input type="hidden" id="event-end-at" />
       <input type="hidden" id="event-start" />
