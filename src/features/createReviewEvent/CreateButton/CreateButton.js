@@ -1,3 +1,4 @@
+// src/features/createReviewEvent/CreateButton/CreateButton.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api";
@@ -12,32 +13,73 @@ export const JSON_HDR = {
 /** 세션만 유지(이 요청은 multipart/form-data라서 Content-Type 비움) */
 export const SESSION_ONLY = { withCredentials: true };
 
-// 보조 유틸
+/* ──────────────────────────────────────────────────────────
+   유틸: 로컬시간 → yyyy-MM-ddTHH:mm:ss.SSS (Z 없음)
+   ────────────────────────────────────────────────────────── */
 const pad2 = (n) => String(n).padStart(2, "0");
-// yyyy-MM-dd HH:mm (로컬, 초 제거)
-const toLocalMinuteSQL = (d) =>
-  d instanceof Date && !isNaN(d?.valueOf())
-    ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-    : null;
+const formatLocalIsoSss = (d) => {
+  if (!(d instanceof Date) || isNaN(d?.valueOf())) return null;
+  const yyyy = d.getFullYear();
+  const MM = pad2(d.getMonth() + 1);
+  const dd = pad2(d.getDate());
+  const hh = pad2(d.getHours());
+  const mm = pad2(d.getMinutes());
+  const ss = pad2(d.getSeconds());
+  const sss = String(d.getMilliseconds()).padStart(3, "0");
+  return `${yyyy}-${MM}-${dd}T${hh}:${mm}:${ss}.${sss}`;
+};
 
-// 문자열 → Date(local) (yyyy-MM-dd HH:mm[:ss], yyyy/MM/dd HH:mm[:ss], ISO 일부 허용)
+/**
+ * 문자열 → Date(local)
+ * - 지원 포맷:
+ *   1) yyyy-MM-dd HH:mm[:ss]
+ *   2) yyyy-MM-ddTHH:mm[:ss]
+ *   3) yyyy-MM-ddTHH:mm:ss.SSS
+ * - 절대 new Date(s) (브라우저 파서)로 파싱하지 않음 → UTC로 오인 방지
+ */
 const parseToLocalDate = (v) => {
   if (!v) return null;
   if (v instanceof Date) return isNaN(v) ? null : v;
+
   let s = String(v).trim();
+  if (!s) return null;
+
+  // 통일
   s = s.replace(/\//g, "-");
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+
+  // yyyy-MM-ddTHH:mm:ss.SSS
+  let m = s.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})$/
+  );
+  if (m) {
+    const [, y, mo, d, hh, mm, ss, sss] = m.map(Number);
+    return new Date(y, mo - 1, d, hh, mm, ss, sss);
+  }
+
+  // yyyy-MM-dd[ T]HH:mm[:ss]
+  m = s.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
+  );
   if (m) {
     const [, y, mo, d, hh, mm, ss] = m.map(Number);
     return new Date(y, mo - 1, d, hh, mm, ss || 0, 0);
   }
-  const d = new Date(s);
-  return isNaN(d) ? null : d;
+
+  // 그 외 포맷은 모르는 것으로 처리
+  return null;
 };
 
-const toMinuteString = (v) => {
-  const d = parseToLocalDate(v);
-  return d ? toLocalMinuteSQL(d) : null;
+// 원하는 최종 포맷으로 정규화: yyyy-MM-ddTHH:mm:ss.SSS (Z 없음)
+const normalizeToLocalIsoSss = (v) => {
+  const s = (v ?? "").toString().trim();
+  if (!s) return null;
+
+  // 이미 최종 포맷이면 그대로 사용
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/.test(s)) return s;
+
+  // 직접 파싱해서 로컬 Date 생성 후 포맷
+  const d = parseToLocalDate(s);
+  return d ? formatLocalIsoSss(d) : null;
 };
 
 const readHidden = (id) => {
@@ -71,74 +113,64 @@ export default function CreateButton({ collect, posterFile }) {
     const title = String(data.title ?? "").trim();
 
     // ✅ EventContent → description
-    //    1순위 collect.description, 2순위 hidden(#event-desc)
-    const description = String((data.description ?? readHidden("event-desc")) || "").trim();
+    const description = String(
+      (data.description ?? readHidden("event-desc")) || ""
+    ).trim();
 
     const storeId = Number(data.storeId || 0);
     if (!title) return alert("제목을 입력하세요.");
     if (!storeId) return alert("매장을 선택하세요.");
 
     // ✅ RewardContent → rewardContent
-    //    1순위 collect.rewardContent, 2순위 hidden(#event-reward-content)
     const rewardContent = String(
       (data.rewardContent ?? readHidden("event-reward-content")) || ""
     ).trim();
 
-    // 날짜: collect → hidden(-at → 구 id) 순서로 확보(기존 호환)
-    const hiddenStart = readHidden("event-start-at") || readHidden("event-start");
-    const hiddenEnd   = readHidden("event-end-at")   || readHidden("event-end");
+    // 날짜: collect(우선) → hidden(-at, -기본) 순서로 확보
+    const rawStart =
+      data.startAt ||
+      readHidden("event-start-at") || // DatePick이 넣어주는 yyyy-MM-ddTHH:mm:ss.SSS
+      readHidden("event-start");      // 백업(yyyy-MM-dd HH:mm)
 
-    // ✅ 백엔드(LocalDateTime 등)에서 안전하게 파싱되도록 ISO-8601로 변환
-    const toISOOrNull = (v) => {
-      const raw = toMinuteString(v);
-      const d = parseToLocalDate(raw);
-      return d ? new Date(d).toISOString() : null; // 예: "2025-08-21T17:00:00.000Z"
-    };
+    const rawEnd =
+      data.endAt ||
+      readHidden("event-end-at") ||
+      readHidden("event-end");
 
-    const startAt = toISOOrNull(data.startAt) || toISOOrNull(hiddenStart);
-    const endAt   = toISOOrNull(data.endAt)   || toISOOrNull(hiddenEnd);
+    // ✅ 최종 포맷으로 정규화(yyyy-MM-ddTHH:mm:ss.SSS, Z 없음)
+    const startAt = normalizeToLocalIsoSss(rawStart);
+    const endAt = normalizeToLocalIsoSss(rawEnd);
 
     if (!startAt || !endAt) {
       alert("시작/종료 일시를 선택하세요.");
       return;
     }
 
-    // ✅ 리워드 카운트: collect 우선, 없으면 hidden에서 백업
+    // ✅ 리워드 카운트
     const rewardCountVal =
       toIntOrNull(data.rewardCount) ?? toIntOrNull(readHidden("event-reward-count"));
 
     try {
       setPending(true);
 
-      // ✅ 서버 DTO로 받을 JSON(= @RequestPart("request"))
+      // ✅ 서버 DTO
       const requestPayload = {
         title,
-        description,   // ✅ EventContent 값
-        startAt,       // ISO-8601
-        endAt,         // ISO-8601
+        description,
+        startAt, // 예: "2025-08-22T20:00:00.000"
+        endAt,   // 예: "2025-08-23T18:30:00.000"
         storeId,
-
-        // ✅ lat/lng는 collect에서 이미 숫자 변환됨 (null 허용)
-        lat: data.lat ?? null,
-        lng: data.lng ?? null,
-
-        rewardContent, // ✅ RewardContent 값
+        rewardContent,
       };
       if (rewardCountVal !== null) requestPayload.rewardCount = rewardCountVal;
 
       // ✅ multipart/form-data 생성
       const form = new FormData();
-
-      // request 파트를 application/json Blob으로 추가 (필수 핵심)
       const requestBlob = new Blob([JSON.stringify(requestPayload)], { type: "application/json" });
       form.append("request", requestBlob, "request.json");
 
-      // image 파트(선택): 파일이 있으면 추가 (백엔드에서 required면 검증 추가)
       if (posterFile) {
         form.append("image", posterFile, posterFile.name || "image");
-      } else {
-        // 백엔드에서 image가 필수면 아래 주석 해제
-        // return alert("포스터 이미지를 선택하세요.");
       }
 
       // ⚠️ Content-Type 수동 설정 금지 → axios가 boundary 포함 자동 설정

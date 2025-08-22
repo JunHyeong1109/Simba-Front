@@ -32,13 +32,12 @@ export default function MyPage() {
   const initial = (user?.name || user?.email || "U").toString().slice(0, 1).toUpperCase();
   const displayName = user?.username || user?.name || user?.email || "사용자";
 
-  // ✅ 유저 확보: id가 없으면 항상 /itda/me 호출
+  // ✅ 유저 확보
   useEffect(() => {
     let alive = true;
 
     (async () => {
       try {
-        // 컨텍스트에 id 가진 유저가 생기면 그대로 사용
         if (outletCtx?.user?.id) {
           if (alive) {
             setUser(outletCtx.user);
@@ -60,7 +59,6 @@ export default function MyPage() {
     return () => {
       alive = false;
     };
-    // 🔑 id가 생기면 이 effect가 멈추도록 user id 기준으로 의존성 설정
   }, [outletCtx?.user?.id]);
 
   // 리뷰 로드
@@ -88,7 +86,7 @@ export default function MyPage() {
     };
   }, [user?.id]);
 
-  // 바우처 로드 함수 (ALL은 클라이언트에서 3상태 병합)
+  // 바우처 로드 함수
   const fetchVouchers = async (filter) => {
     if (!user?.id) return;
     setLoadingVouchers(true);
@@ -159,6 +157,16 @@ export default function MyPage() {
     []
   );
 
+  // ✅ 리뷰 상태 칩 정보
+  const reviewStatusMeta = useMemo(
+    () => ({
+      APPROVED: { label: "승인됨", chip: "success" },
+      PENDING: { label: "대기중", chip: "warn" },
+      REJECTED: { label: "비승인", chip: "muted" },
+    }),
+    []
+  );
+
   const fmtDate = (d) => {
     if (!d) return "-";
     try {
@@ -216,34 +224,44 @@ export default function MyPage() {
             ) : reviews.length === 0 ? (
               <div className="mypage-empty">아직 작성한 리뷰가 없습니다.</div>
             ) : (
-              reviews.map((review) => (
-                <article key={review.id} className="mypage-card">
-                  {/* 가게 정보 */}
-                  <div className="mypage-store">
-                    <div className="mypage-store-thumb" aria-hidden>
-                      📷
-                    </div>
-                    <div className="mypage-store-info">
-                      <div className="mypage-store-name">{review.storeName}</div>
-                    </div>
-                  </div>
+              reviews.map((review) => {
+                const statusKey =
+                  (review.status || "").toString().toUpperCase(); // 서버에서 주는 상태값
+                const statusInfo = reviewStatusMeta[statusKey] || reviewStatusMeta.PENDING;
 
-                  {/* 리뷰 내용 */}
-                  <div className="mypage-review">
-                    <div className="mypage-avatar sm" aria-hidden>
-                      👤
-                    </div>
-                    <div className="mypage-review-body">
-                      <div className="mypage-review-meta">
-                        <span className="mypage-review-author">{displayName}</span>
+                return (
+                  <article key={review.id} className="mypage-card">
+                    {/* 가게 정보 */}
+                    <div className="mypage-store">
+                      <div className="mypage-store-thumb" aria-hidden>
+                        📷
                       </div>
-                      {review.content && (
-                        <p className="mypage-review-text">{review.content}</p>
-                      )}
+                      <div className="mypage-store-info">
+                        <div className="mypage-store-name">{review.storeName}</div>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))
+
+                    {/* 리뷰 내용 */}
+                    <div className="mypage-review">
+                      <div className="mypage-avatar sm" aria-hidden>
+                        👤
+                      </div>
+                      <div className="mypage-review-body">
+                        <div className="mypage-review-meta">
+                          <span className="mypage-review-author">{displayName}</span>
+                          {/* ✅ 상태 칩 */}
+                          <span className={`mypage-chip ${statusInfo.chip}`}>
+                            {statusInfo.label}
+                          </span>
+                        </div>
+                        {review.content && (
+                          <p className="mypage-review-text">{review.content}</p>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })
             )}
           </div>
         </section>
@@ -253,7 +271,7 @@ export default function MyPage() {
           <div className="mypage-section-head">
             <h2 className="mypage-section-title">바우처 목록</h2>
 
-            {/* 탭: 전체 | 발급 | 사용 | 만료 */}
+            {/* 탭 */}
             <div className="mypage-tabs" role="tablist" aria-label="바우처 상태 필터">
               {FILTERS.map((key) => (
                 <button
@@ -283,9 +301,8 @@ export default function MyPage() {
                 const meta = statusMeta[v.status] || statusMeta.ISSUED;
                 return (
                   <article key={v.id} className="mypage-card mypage-reward">
-                    {/* 왼쪽: (칩 + 본문) 묶음 */}
+                    {/* 왼쪽 */}
                     <div className="mypage-reward-left">
-                      {/* 상태 칩 */}
                       <div className={`mypage-chip ${meta.chip}`}>
                         {statusMeta[v.status]?.label ?? meta.label}
                       </div>
@@ -301,7 +318,7 @@ export default function MyPage() {
                       </div>
                     </div>
 
-                    {/* 발급 상태에서만 '사용 처리' 제공 */}
+                    {/* 발급 상태에서만 버튼 */}
                     {v.status === "ISSUED" && (
                       <button
                         type="button"

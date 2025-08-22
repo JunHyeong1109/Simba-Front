@@ -287,6 +287,11 @@
   --chip-color: #6b7280;
 }
 
+.mypage-review-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
 /* --- 탭 --- */
 .mypage-tabs {
   display: inline-flex;
@@ -320,3 +325,4 @@
 .mypage-btn.use:hover {
   opacity: 0.92;
 }
+

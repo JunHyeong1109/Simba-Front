@@ -1,65 +1,24 @@
-.rewardC-field {
-  display: grid;
-  gap: 6px;
-}
-
-.rewardC-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.rewardC-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
+/* 보상 내용 입력칸 */
+.reward-content-input {
+  width: 240px;             /* 폭은 필요에 맞게 조절 */
+  height: 38px;             /* ✅ 보상 수량 input과 동일 높이 */
+  padding: 8px 10px;
   box-sizing: border-box;
-  outline: none;
+  font-size: 14px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
   background: #fff;
+  color: #111;
+  outline: none;
 }
 
-.rewardC-input:focus {
+/* placeholder 색 */
+.reward-content-input::placeholder {
+  color: #9aa0a6;
+}
+
+/* 포커스 효과 */
+.reward-content-input:focus {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59,130,246,.15);
-}
-
-/* 작은 도움말 */
-.rewardC-help {
-  color: #6b7280;
-  font-size: 12px;
-}
-
-/* 툴팁: input 바로 감싼 래퍼에 data-tip으로 표시 */
-.rewardC-tooltip {
-  position: relative;
-  display: block; /* 인풋을 가득 채우도록 */
-}
-
-/* 호버 시 툴팁 표시 */
-.rewardC-tooltip:hover::after {
-  content: attr(data-tip);
-  position: absolute;
-  left: 0;
-  top: calc(100% + 8px);   /* ▼ 아래로 배치 */
-  max-width: min(420px, 80vw);
-  white-space: nowrap;
-  background: #111827;
-  color: #fff;
-  font-size: 12px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.18);
-  z-index: 20;
-}
-
-/* 툴팁 화살표 */
-.rewardC-tooltip:hover::before {
-  content: "";
-  position: absolute;
-  left: 12px;
-  top: calc(100% + 2px);   /* ▼ 아래로 배치 */
-  border: 6px solid transparent;
-  border-top-color: #111827; /* ▲ 윗방향 삼각형 */
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
 }
