@@ -91,18 +91,65 @@ export default function MyPage() {
     if (!user?.id) return;
     setLoadingVouchers(true);
 
+    // ✅ 미션 보상명/매장명/기간을 폭넓게 흡수하는 정규화
     const normalize = (list, assumedFilter) =>
       list.map((v) => {
-        const storeName = v.storeName || v.store?.name || "";
-        const title = v.title || v.name || "바우처";
-        const id = v.id ?? v.voucherId ?? v.uuid ?? v.code;
-        const status =
-          assumedFilter === "ALL"
-            ? (v.vstatus || v.status || "ISSUED").toString().toUpperCase()
-            : (v.vstatus || assumedFilter || "ISSUED").toString().toUpperCase();
-        const start = v.startAt || v.startDate || v.validFrom || v.validFromAt || null;
-        const end = v.endAt || v.endDate || v.validTo || v.validToAt || null;
-        return { ...v, id, storeName, title, status, start, end };
+        // 1) ID 통일
+        const id =
+          v.id ?? v.voucherId ?? v.voucherID ?? v.uuid ?? v.code ?? v._id;
+
+        // 2) 상태 통일
+        const rawStatus = (v.vstatus || v.status || assumedFilter || "ISSUED")
+          .toString()
+          .toUpperCase();
+        const status = assumedFilter === "ALL" ? rawStatus : rawStatus;
+
+        // 3) 매장명(사용처)
+        const storeName =
+          v.storeName ||
+          v.store?.name ||
+          v.mission?.storeName ||
+          v.mission?.store?.name ||
+          v.merchantName ||
+          "";
+
+        // 4) 보상명(= 바우처 타이틀)
+        const rewardTitle =
+          v.rewardTitle ||
+          v.reward ||
+          v.missionReward ||
+          v.mission?.reward ||
+          v.benefit ||
+          v.prize ||
+          v.reward_name ||
+          v.rewardName;
+        const title = rewardTitle || v.title || v.name || "바우처";
+
+        // 5) 사용기간
+        const start =
+          v.startAt ||
+          v.start_date ||
+          v.startDate ||
+          v.validFrom ||
+          v.validFromAt ||
+          v.usageStart ||
+          v.period?.start ||
+          v.mission?.voucherStart ||
+          v.voucher?.startAt ||
+          null;
+        const end =
+          v.endAt ||
+          v.end_date ||
+          v.endDate ||
+          v.validTo ||
+          v.validToAt ||
+          v.usageEnd ||
+          v.period?.end ||
+          v.mission?.voucherEnd ||
+          v.voucher?.endAt ||
+          null;
+
+        return { ...v, id, status, storeName, title, start, end };
       });
 
     try {
@@ -120,7 +167,7 @@ export default function MyPage() {
         const merged = [...results[0], ...results[1], ...results[2]];
         const seen = new Set();
         const deduped = merged.filter((v) => {
-          const vid = v.id ?? v.voucherId ?? v.uuid ?? v.code;
+          const vid = v.id ?? v.voucherId ?? v.uuid ?? v.code ?? v._id;
           if (seen.has(vid)) return false;
           seen.add(vid);
           return true;
@@ -171,8 +218,8 @@ export default function MyPage() {
     if (!d) return "-";
     try {
       const dt = new Date(d);
-      if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
-    } catch {}
+      if (!isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
+    } catch { }
     return String(d).slice(0, 10);
   };
 
@@ -313,7 +360,14 @@ export default function MyPage() {
                           {v.title}
                         </div>
                         <div className="mypage-reward-period">
-                          사용기간: {fmtDate(v.start)} ~ {fmtDate(v.end)}
+                          {v.start || v.end ? (
+                            <>사용기간: {fmtDate(v.start)} ~ {fmtDate(v.end)}</>
+                          ) : (
+                            <>사용기간: -</>
+                          )}
+                          <span className="mypage-reward-place">
+                            · 사용처: {v.storeName || "-"}
+                          </span>
                         </div>
                       </div>
                     </div>

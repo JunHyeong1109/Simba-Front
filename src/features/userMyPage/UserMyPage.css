@@ -248,6 +248,13 @@
   color: var(--muted);
 }
 
+/* 사용처도 동일한 스타일 */
+.mypage-reward-place {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 8px; /* 기간 옆에 간격만 주기 */
+}
+
 /* ---- Chips ---- */
 /* ✅ 공통 크기 통일 (한글/영문 상관없이 균일) */
 .mypage-chip {
