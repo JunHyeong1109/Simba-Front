@@ -27,14 +27,12 @@
   align-items: center;
   margin-bottom: 16px;
 }
-
 .review-title {
   font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.2px;
   margin: 0;
 }
-
 .review-sort-select {
   padding: 8px 10px;
   border: 1px solid #e5e7eb;
@@ -49,7 +47,6 @@
   gap: 12px;
   margin-bottom: 20px;
 }
-
 .review-empty {
   color: #6b7280;
   text-align: center;
@@ -71,7 +68,6 @@
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
-
 .review-avatar {
   width: 40px;
   height: 40px;
@@ -81,7 +77,6 @@
   place-items: center;
   background: #ffffff;
 }
-
 .review-content { min-width: 0; }
 .review-top {
   display: flex;
@@ -108,8 +103,17 @@
   overflow-wrap: anywhere;
 }
 
+/* 여러 장 출력 레이아웃 */
+.review-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
 .review-image {
-  max-width: 100%;
+  width: 100%;
+  height: 100%;
+  max-height: 220px;
+  object-fit: cover;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
 }
@@ -122,9 +126,8 @@
   padding: 14px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   position: sticky;
-  bottom: 12px;   /* 화면 하단에 고정 느낌 (선택) */
+  bottom: 12px;
 }
-
 .review-input-container.disabled { opacity: 0.7; }
 
 .review-guard {
@@ -181,7 +184,49 @@
   gap: 8px;
   margin-bottom: 10px;
 }
-.review-file { font-size: 13px; }
+
+/* ---------- File input pretty button ---------- */
+.review-file {
+  font-size: 0;                 /* 기본 파일명 텍스트 숨김 */
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  min-height: 38px;
+}
+.review-file::file-selector-button {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border: none;
+  background: #4e6cff;
+  color: #fff;
+  cursor: pointer;
+  height: 100%;
+  outline: none;
+  transition: background-color .15s ease, transform .06s ease, opacity .15s ease;
+}
+.review-file::-webkit-file-upload-button {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border: none;
+  background: #4e6cff;
+  color: #fff;
+  cursor: pointer;
+  height: 100%;
+  outline: none;
+  transition: background-color .15s ease, transform .06s ease, opacity .15s ease;
+}
+.review-file:hover::file-selector-button,
+.review-file:hover::-webkit-file-upload-button { background: #3b53d9; }
+.review-file:active::file-selector-button,
+.review-file:active::-webkit-file-upload-button { transform: translateY(1px); }
+.review-file:disabled { opacity: .6; cursor: not-allowed; }
+.review-file:disabled::file-selector-button,
+.review-file:disabled::-webkit-file-upload-button { cursor: not-allowed; }
+
 .preview-btn {
   background: #4e6cff;
   color: #fff;
@@ -191,6 +236,9 @@
   cursor: pointer;
   font-size: 13px;
 }
+.preview-btn:hover { background: #3b53d9; }
+.preview-btn.danger { background: #ef4444; }
+.preview-btn.danger:hover { background: #dc2626; }
 .preview-btn:disabled { opacity: .6; cursor: not-allowed; }
 .file-name { font-size: 12px; color: #6b7280; }
 
@@ -207,39 +255,127 @@
 }
 .review-button:disabled { opacity: .6; cursor: not-allowed; }
 
-/* 모달 */
-.modal-overlay {
+/* ───────── 하단 갤러리 모달 (X로만 닫기) ───────── */
+.gallery-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.5);
+  background: rgba(0,0,0,.45);
+  display: flex;
+  align-items: flex-end; /* 하단 시트 */
+  justify-content: center;
+  z-index: 60;
+}
+.gallery-sheet {
+  width: min(960px, 96vw);
+  max-height: 80vh;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -10px 30px rgba(0,0,0,.18);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+}
+
+/* 헤더 */
+.gallery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #eee;
+}
+.gallery-title {
+  font-weight: 700;
+}
+.gallery-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  transition: transform .12s ease, background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.gallery-close::before,
+.gallery-close::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 2px;
+  background: #111827;
+  border-radius: 2px;
+  transform-origin: center;
+}
+.gallery-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+.gallery-close::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+.gallery-close:hover {
+  background: #f8fafc;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+}
+
+/* 본문(이미지/네비) */
+.gallery-body {
+  position: relative;
   display: grid;
   place-items: center;
-  z-index: 50;
+  padding: 10px;
+  background: #fafafa;
+  overflow: hidden;
 }
-.modal-content {
-  background: #fff;
-  padding: 12px;
-  border-radius: 12px;
-  max-width: 90vw;
-  max-height: 80vh;
-  box-shadow: 0 10px 30px rgba(0,0,0,.2);
-  display: grid;
-  gap: 10px;
-}
-.modal-content img {
-  max-width: 80vw;
-  max-height: 65vh;
+.gallery-image {
+  max-width: 92%;
+  max-height: 56vh;           /* 5장 미리보기 요구는 리뷰모달이었고, 여기선 한 장 크게 */
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid #e5e7eb;
+  background: #fff;
 }
-.modal-close {
-  justify-self: end;
-  background: #4b5563;
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(17,24,39,.85);
+  color: #fff;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+.gallery-nav.left  { left: 14px; }
+.gallery-nav.right { right: 14px; }
+.gallery-nav:hover { background: rgba(17,24,39,.95); }
+
+/* 푸터 */
+.gallery-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid #eee;
+  background: #fff;
+}
+.gallery-count { color: #6b7280; font-size: 13px; }
+
+.delete-btn {
+  background: #ef4444;
   color: #fff;
   border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 700;
   cursor: pointer;
-  font-size: 13px;
 }
+.delete-btn:hover { background: #dc2626; }
