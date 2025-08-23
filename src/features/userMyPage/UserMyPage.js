@@ -118,7 +118,7 @@ export default function MyPage() {
         const pureTitle = rewardTitle || v.title || v.name;
 
         // 화면 표시용 제목: [매장명]보상내용  (중간 공백 없이)
-        const displayTitle = `${storeName ? `[${storeName}]` : ""}${pureTitle}`;
+        const displayTitle = `${storeName ? `[${storeName}] ` : ""}${pureTitle}`;
 
         // 사용기간(시작/끝) — 다양한 키 흡수
         const start =
