@@ -1,4 +1,3 @@
-// src/features/eventMap/eventContent/EventContent.js
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useLocation, useOutletContext } from "react-router-dom";
 import api from "../../../api";
@@ -10,7 +9,7 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
   const outletCtx = useOutletContext();
   const authUser = outletCtx?.user || null;
 
-  // ── 모달/리뷰 상태
+  // 모달/리뷰 상태
   const [modalOpen, setModalOpen] = useState(false);
   const [missions, setMissions] = useState([]);
   const [missionsLoading, setMissionsLoading] = useState(false);
@@ -21,9 +20,9 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsErr, setReviewsErr] = useState("");
 
-  // ── 공통 파생값
+  // 파생값 (selected 없어도 안전)
   const mission = selected?.mission || selected || {};
-  const store = mission?.store || {};
+  const store = mission?.store || selected?.store || {};
 
   const poster =
     mission.imgUrl ||
@@ -37,22 +36,14 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
   const desc = mission.description || mission.desc || "";
   const start = mission.startAt || mission.startDate || "";
   const end = mission.endAt || mission.endDate || "";
+  const rewardContent = mission.rewardContent || mission.rewardName || "";
 
-  // ✅ 보상 수량(숫자)
   const reward =
     mission.rewardRemainingCount ??
     mission.rewardCount ??
+    mission.reward ??
     mission.quantity ??
     mission.rewardQty ??
-    null;
-
-  // ✅ 보상 내용(텍스트) — 여기 추가!
-  const rewardContentText =
-    mission.rewardContent ??
-    mission.rewardDescription ??
-    mission.reward_name ??
-    mission.rewardName ??
-    mission.missionReward ??
     null;
 
   const storeName = store.storeName || store.name || mission.storeName || "-";
@@ -171,9 +162,7 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
         if (alive) setMissionsLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [modalOpen, storeId, missionId]);
 
   const normalizeReview = (r) => {
@@ -225,7 +214,7 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
 
   const hasMission = !!missionId;
 
-  // 선택 없음
+  // 선택 전: 안내
   if (!selected) {
     return (
       <div className="event-detail empty">
@@ -235,16 +224,15 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
   }
 
   return (
-    <div className="event-detail" style={{ position: "relative" }}>
+    <div className="event-detail">
       {/* 우상단: 매장 리뷰 보기 */}
-      <div style={{ position: "absolute", right: 0, top: 0 }}>
+      <div className="event-floating-actions">
         <button
           type="button"
           className="event-btn ghost"
           onClick={openModal}
           disabled={!storeId}
           title={storeId ? "이 매장의 리뷰 보기" : "매장 정보가 없습니다"}
-          style={{ margin: 8 }}
         >
           매장 리뷰 보기
         </button>
@@ -276,13 +264,11 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
           </span>
         </div>
 
-        {/* ✅ 보상 내용(텍스트) */}
         <div className="row">
           <span className="label">보상 내용</span>
-          <span className="value">{hasMission ? (rewardContentText || "-") : "-"}</span>
+          <span className="value">{hasMission ? (rewardContent || "-") : "-"}</span>
         </div>
 
-        {/* 보상 수량(숫자) */}
         <div className="row">
           <span className="label">보상 수량</span>
           <span className="value">{hasMission ? (reward ?? "-") : "-"}</span>
@@ -330,66 +316,21 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
         <div
           className="rv-modal-backdrop"
           onClick={() => setModalOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,.4)",
-            zIndex: 1000,
-            display: "grid",
-            placeItems: "center",
-          }}
         >
           <div
             className="rv-modal"
             onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#fff",
-              borderRadius: 12,
-              width: "min(720px, 92vw)",
-              maxHeight: "84vh",
-              display: "grid",
-              gridTemplateRows: "auto auto 1fr",
-              boxShadow: "0 12px 36px rgba(0,0,0,.2)",
-              overflow: "hidden",
-            }}
           >
             {/* 헤더 */}
-            <div
-              className="rv-modal-head"
-              style={{
-                padding: "12px 16px",
-                borderBottom: "1px solid #eee",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                position: "sticky",
-                top: 0,
-                background: "#fff",
-                zIndex: 2,
-              }}
-            >
+            <div className="rv-modal-head">
               <strong>매장 리뷰 보기</strong>
               <button type="button" onClick={() => setModalOpen(false)} className="event-btn ghost">
                 닫기
               </button>
             </div>
 
-            {/* 미션 셀렉터 */}
-            <div
-              className="rv-modal-controls"
-              style={{
-                padding: "12px 16px",
-                display: "flex",
-                gap: 12,
-                alignItems: "center",
-                borderBottom: "1px solid #f2f2f2",
-                flexWrap: "wrap",
-                position: "sticky",
-                top: 48,
-                background: "#fff",
-                zIndex: 2,
-              }}
-            >
+            {/* 셀렉터 (sticky) */}
+            <div className="rv-modal-controls">
               <div style={{ fontWeight: 600 }}>{storeName}</div>
               <div style={{ marginLeft: "auto" }}>
                 {missionsLoading ? (
@@ -403,13 +344,6 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
                     className="event-input"
                     value={selectedMissionId || ""}
                     onChange={(e) => setSelectedMissionId(e.target.value || null)}
-                    style={{
-                      minWidth: 280,
-                      padding: "8px 10px",
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                      background: "#fff",
-                    }}
                   >
                     {missions.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -421,16 +355,8 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
               </div>
             </div>
 
-            {/* 리뷰 리스트 (5개 높이 정도, 스크롤 가능) */}
-            <div
-              className="rv-modal-body"
-              style={{
-                padding: 16,
-                overflowY: "auto",
-                height: "min(60vh, 480px)",
-                minHeight: 360,
-              }}
-            >
+            {/* 본문 (스크롤, 5개 정도 보이는 높이) */}
+            <div className="rv-modal-body">
               {reviewsLoading && reviews.length === 0 ? (
                 <div style={{ color: "#666" }}>리뷰 불러오는 중…</div>
               ) : reviewsErr ? (
@@ -440,38 +366,17 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
               ) : reviews.length === 0 ? (
                 <div style={{ color: "#666" }}>표시할 리뷰가 없습니다.</div>
               ) : (
-                <div style={{ display: "grid", gap: 12 }}>
+                <div className="rv-review-list">
                   {reviews.map((r) => (
-                    <article
-                      key={r.id}
-                      style={{
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 10,
-                        padding: 12,
-                        background: "#fff",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <article key={r.id} className="rv-review-card">
+                      <div className="rv-review-top">
                         <strong>{r.userName}</strong>
                         <span aria-label={`별점 ${r.rating}점`}>
                           {"★".repeat(Math.max(0, Math.floor(r.rating || 0)))}
                           {"☆".repeat(Math.max(0, 5 - Math.floor(r.rating || 0)))}
                         </span>
                       </div>
-                      {r.text && (
-                        <p
-                          style={{
-                            marginTop: 8,
-                            whiteSpace: "pre-wrap",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {r.text}
-                        </p>
-                      )}
+                      {r.text && <p className="rv-review-text">{r.text}</p>}
                     </article>
                   ))}
                 </div>

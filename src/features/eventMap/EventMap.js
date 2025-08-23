@@ -1,59 +1,64 @@
+// src/features/eventMap/EventMap.js
 import { useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import KaKaoMap from "./map/KaKaoMap";
-import EventList from "./eventList/EventList";
+import EventList from "./eventList/EventList";   // ✅ 리스트 복원
 import EventContent from "./eventContent/EventContent";
 import "./EventMap.css";
 
 export default function EventMap() {
-  // selected는 마커 클릭 시 내려오는 payload를 그대로 담아둠
-  // 예: { storeId, lat, lng, address: { road?, jibun? } }  또는  { mission, lat, lng, address? }
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(null); // { mission|null, lat, lng, address?, store? }
 
   // /map?storeId=123 → 해당 매장 위치로 지도 포커스
   const [params] = useSearchParams();
   const storeIdParam = params.get("storeId");
   const storeIdToFocus = storeIdParam ? Number(storeIdParam) : null;
 
-  // 마커 클릭 시 하단 상세/왼쪽 패널 갱신
-  const handleMarkerSelect = useCallback((payload) => {
+  // 지도 마커 클릭 → 상세 패널/리스트 연동
+  const handleMissionSelect = useCallback((payload) => {
+    // payload: { mission|null, lat, lng, address?, store? }
     setSelected(payload);
   }, []);
 
-  // 왼쪽 패널용으로 storeId/address 뽑아내기 (미션 payload인 경우도 대비)
-  const storeIdForPanel =
+  // 좌측 리스트에 넘길 매장 id (선택된 매장 기준)
+  const selectedStoreId =
+    selected?.store?.id ??
     selected?.storeId ??
-    selected?.mission?.store?.id ??
     selected?.mission?.storeId ??
+    selected?.mission?.store?.id ??
     null;
-
-  const addressForPanel = selected?.address || null;
 
   return (
     <div className="event-page-80">
-      <div className="map-list-layout">
-        {/* 왼쪽: 선택된 매장 정보 패널 */}
+      <div className="map-list-layout">{/* ✅ 두 칼럼 레이아웃로 복귀 */}
+        {/* 왼쪽: 미션 리스트 */}
         <div className="list-col">
           <EventList
-            storeId={storeIdForPanel}
-            address={addressForPanel}
+            // 선택된 매장이 있으면 그 매장의 미션만 보여줌
+            storeId={selectedStoreId || undefined}
+            // 기본 동작은 joinable (EventList 내부 로직 유지)
+            onSelect={({ mission, lat, lng }) =>
+              setSelected({
+                mission,
+                lat,
+                lng,
+                store: mission?.store, // 상세 패널 연동용
+              })
+            }
           />
         </div>
 
         {/* 오른쪽: 지도 */}
         <div className="map-col">
           <KaKaoMap
-            // URL로 전달된 매장으로 지도 포커스
             storeIdToFocus={storeIdToFocus}
-            // 마커 클릭 시 선택 상태 갱신
-            onMissionSelect={handleMarkerSelect}
-            // (선택) 리스트 선택으로 포커스 이동을 쓰지 않으므로 남겨도 무해
-            focus={selected}
+            focus={selected}                 // 리스트/마커 선택 시 좌표 이동
+            onMissionSelect={handleMissionSelect} // 마커 클릭 → 좌측/하단 갱신
           />
         </div>
       </div>
 
-      {/* 하단: 미션 상세 (선택된 미션이 없으면 안내 문구가 보이도록 EventContent가 처리) */}
+      {/* 하단: 상세 패널 */}
       <EventContent selected={selected} />
     </div>
   );

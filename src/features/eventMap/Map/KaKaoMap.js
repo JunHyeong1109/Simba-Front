@@ -1,5 +1,4 @@
 /* eslint-env browser */
-// src/features/eventMap/map/KaKaoMap.js
 import { useEffect, useRef, useState } from "react";
 import loadKakaoMaps from "./KakaoLoader";
 import getCurrentLocation from "./Location";
@@ -8,21 +7,18 @@ import "./MapStyle.css";
 
 const KAKAO_APP_KEY = "261b88294b81d5800071641ecc633dcb";
 
-// 🔴 미션 보유 매장용 빨간 아이콘 (SVG data URL)
-function makeRedMarkerImage(kakao) {
-  const svg = `
-    <svg xmlns='http://www.w3.org/2000/svg' width='32' height='46' viewBox='0 0 32 46'>
-      <path fill='#d93025' d='M16 0c8.284 0 15 6.716 15 15 0 11-15 31-15 31S1 26 1 15C1 6.716 7.716 0 16 0z'/>
-      <circle cx='16' cy='15' r='6' fill='white'/>
-    </svg>`;
-  const url = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
-  const size = new kakao.maps.Size(32, 46);
-  const offset = new kakao.maps.Point(16, 46);
-  return new kakao.maps.MarkerImage(url, size, { offset });
-}
+/* 날짜 헬퍼 */
+const toDate = (v) => (v ? new Date(v) : null);
+const isOngoing = (m, now = new Date()) => {
+  const s = toDate(m.startAt || m.startDate);
+  const e = toDate(m.endAt || m.endDate);
+  const started = !s || s <= now;
+  const notEnded = !e || now <= e;
+  return started && notEnded;
+};
 
-// ✅ 인포윈도우: 매장 정보만 (미션 섹션 제거)
-function renderStoreOnly({ storeName, desc, road, jibun }) {
+/* 매장 정보만 담는 인포윈도우 템플릿 */
+function renderStoreInfo({ storeName, desc, road, jibun }) {
   return `
     <div class="infoWindow">
       <b class="infoTitle">${storeName || "매장"}</b>
@@ -35,8 +31,7 @@ function renderStoreOnly({ storeName, desc, road, jibun }) {
 }
 
 export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
-  // 진행 가능한 미션 (색상 구분용으로만 사용)
-  const [missions, setMissions] = useState([]);
+  const [missions, setMissions] = useState([]); // 진행 가능한 미션(필요 시 조정)
   const [stores, setStores] = useState([]);
 
   const mapRef = useRef(null);
@@ -45,16 +40,17 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
   const centerAddrRef = useRef(null);
   const initialized = useRef(false);
 
-  // 매장 마커/윈도우
   const storeMarkersRef = useRef([]);
   const storeInfoWindowRef = useRef(null);
   const openedStoreMarkerRef = useRef(null);
 
-  // URL 포커스용
   const focusMarkerRef = useRef(null);
   const focusInfoWindowRef = useRef(null);
 
-  // 1) 지도 초기화
+  const onMissionSelectRef = useRef(onMissionSelect);
+  useEffect(() => { onMissionSelectRef.current = onMissionSelect; }, [onMissionSelect]);
+
+  /* 1) 지도 초기화 */
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
@@ -77,11 +73,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
         storeInfoWindowRef.current = new kakao.maps.InfoWindow({ zIndex: 2 });
 
         const searchAddrFromCoords = (coords, cb) => {
-          geocoderRef.current?.coord2RegionCode(
-            coords.getLng(),
-            coords.getLat(),
-            cb
-          );
+          geocoderRef.current?.coord2RegionCode(coords.getLng(), coords.getLat(), cb);
         };
         const displayCenterInfo = (result, status) => {
           if (status === kakao.maps.services.Status.OK) {
@@ -108,13 +100,11 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
         kakao.maps.event.removeListener(mapRef.current, "idle", onMapIdle);
       }
 
-      // 매장 마커 정리
       storeMarkersRef.current.forEach((m) => m.setMap(null));
       storeMarkersRef.current = [];
       storeInfoWindowRef.current?.close();
       openedStoreMarkerRef.current = null;
 
-      // 포커스 마커 정리
       focusInfoWindowRef.current?.close();
       if (focusMarkerRef.current) {
         focusMarkerRef.current.setMap(null);
@@ -126,7 +116,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     };
   }, []);
 
-  // 2-A) joinable 미션 (매장에 미션 유무 판단용)
+  /* 2-A) 미션 로드 */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -143,7 +133,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     return () => { alive = false; };
   }, []);
 
-  // 2-B) 모든 매장
+  /* 2-B) 매장 로드 */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -165,14 +155,14 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     return () => { alive = false; };
   }, []);
 
-  // 3) 매장 마커 (매장당 1개, 미션 보유 시 빨간 아이콘)
+  /* 3) 매장 마커(매장당 1개) + 클릭 시 즉시 상세 패널 갱신 */
   useEffect(() => {
     const kakao = window.kakao;
     const map = mapRef.current;
     const geocoder = geocoderRef.current;
     if (!kakao || !map || !geocoder) return;
 
-    // 정리
+    // 초기화
     storeMarkersRef.current.forEach((m) => m.setMap(null));
     storeMarkersRef.current = [];
     storeInfoWindowRef.current?.close();
@@ -187,35 +177,56 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
       missionsByStoreId.get(sid).push(ms);
     });
 
+    // 중복 방지
+    const seenStoreIds = new Set();
+
     stores.forEach((s) => {
+      const id = s.id ?? s.storeId;
+      if (id == null) return;
+      if (seenStoreIds.has(String(id))) return;
+      seenStoreIds.add(String(id));
+
       const lat = Number(s.latitude);
       const lng = Number(s.longitude);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-      const sid = s.id ?? s.storeId;
-      const hasMissions = (missionsByStoreId.get(sid) || []).length > 0;
-
       const pos = new kakao.maps.LatLng(lat, lng);
-      const markerOptions = {
+      const marker = new kakao.maps.Marker({
         position: pos,
         map,
-        // ✅ 타이틀도 storeName 우선
-        title: s.storeName || s.name || `매장#${sid}`,
+        title: s.storeName || s.name,
         zIndex: 2,
-      };
-      if (hasMissions) {
-        markerOptions.image = makeRedMarkerImage(kakao); // 미션 있으면 빨간 마커
-      }
-      const marker = new kakao.maps.Marker(markerOptions);
+      });
 
       kakao.maps.event.addListener(marker, "click", () => {
-        // 토글
+        // 진행 중 미션 고르기(있으면 첫 번째)
+        const related = missionsByStoreId.get(id) || [];
+        const ongoing = related.filter((m) => isOngoing(m));
+        const selectedMission = ongoing[0] || null;
+
+        // ✅ 1) 주소 역지오코딩 전에 먼저 상세 패널 갱신 (즉시 UI 반응)
+        onMissionSelectRef.current?.({
+          mission: selectedMission,
+          lat,
+          lng,
+          address: { road: "", jibun: "" },
+          store: {
+            id,
+            storeName: s.storeName || s.name,           // 요청사항: storeName 키
+            address: s.address || "",
+            latitude: s.latitude,
+            longitude: s.longitude,
+          },
+        });
+
+        // 인포윈도우 토글
         if (openedStoreMarkerRef.current === marker) {
           storeInfoWindowRef.current?.close();
           openedStoreMarkerRef.current = null;
           return;
         }
 
+        // 2) 역지오코딩 후 인포윈도우/상세 패널 갱신
         geocoder.coord2Address(lng, lat, (res, status) => {
           let road = "", jibun = "";
           if (status === kakao.maps.services.Status.OK && res?.[0]) {
@@ -223,15 +234,29 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
             jibun = res[0]?.address?.address_name || "";
           }
 
-          const html = renderStoreOnly({
-            storeName: s.storeName || s.name || "매장",
+          const html = renderStoreInfo({
+            storeName: s.storeName || s.name,
             desc: s.description || "",
             road, jibun,
           });
-
           storeInfoWindowRef.current?.setContent(html);
           storeInfoWindowRef.current?.open(map, marker);
           openedStoreMarkerRef.current = marker;
+
+          // 상세 패널의 주소도 최신화
+          onMissionSelectRef.current?.({
+            mission: selectedMission,
+            lat,
+            lng,
+            address: { road, jibun },
+            store: {
+              id,
+              storeName: s.storeName || s.name,
+              address: road || jibun || s.address || "",
+              latitude: s.latitude,
+              longitude: s.longitude,
+            },
+          });
         });
       });
 
@@ -239,7 +264,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     });
   }, [stores, missions]);
 
-  // 4-A) /map?storeId=... → 해당 위치로 이동 + 매장 정보만 표시
+  /* 4-A) ?storeId= 포커스 */
   useEffect(() => {
     const kakao = window.kakao;
     const map = mapRef.current;
@@ -257,14 +282,36 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
         const pos = new kakao.maps.LatLng(lat, lng);
         map.panTo(pos);
 
-        // 포커스 마커
         if (!focusMarkerRef.current) {
           focusMarkerRef.current = new kakao.maps.Marker({ zIndex: 4 });
         }
         focusMarkerRef.current.setPosition(pos);
         focusMarkerRef.current.setMap(map);
 
-        // 상세 주소
+        // 진행중 미션 선택
+        const related = missions.filter((m) => {
+          const sid = m?.store?.id ?? m?.storeId;
+          return String(sid) === String(storeIdToFocus);
+        });
+        const ongoing = related.filter((m) => isOngoing(m));
+        const selectedMission = ongoing[0] || null;
+
+        // 먼저 상세 패널 반영
+        onMissionSelectRef.current?.({
+          mission: selectedMission,
+          lat,
+          lng,
+          address: { road: "", jibun: "" },
+          store: {
+            id: data?.id ?? data?.storeId ?? storeIdToFocus,
+            storeName: data?.storeName || data?.name || "매장",
+            address: data?.address || "",
+            latitude: data?.latitude,
+            longitude: data?.longitude,
+          },
+        });
+
+        // 역지오코딩 + 인포윈도우
         geocoder.coord2Address(lng, lat, (res, status) => {
           let road = "", jibun = "";
           if (status === kakao.maps.services.Status.OK && res?.[0]) {
@@ -272,25 +319,39 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
             jibun = res[0]?.address?.address_name || "";
           }
 
-          const html = renderStoreOnly({
+          const html = renderStoreInfo({
             storeName: data?.storeName || data?.name || "매장",
             desc: data?.description || "",
             road, jibun,
           });
-
           if (!focusInfoWindowRef.current) {
             focusInfoWindowRef.current = new kakao.maps.InfoWindow({ zIndex: 4 });
           }
           focusInfoWindowRef.current.setContent(html);
           focusInfoWindowRef.current.open(map, focusMarkerRef.current);
+
+          // 상세 패널 주소 최신화
+          onMissionSelectRef.current?.({
+            mission: selectedMission,
+            lat,
+            lng,
+            address: { road, jibun },
+            store: {
+              id: data?.id ?? data?.storeId ?? storeIdToFocus,
+              storeName: data?.storeName || data?.name || "매장",
+              address: road || jibun || data?.address || "",
+              latitude: data?.latitude,
+              longitude: data?.longitude,
+            },
+          });
         });
       } catch (e) {
         console.warn("store focus failed:", e?.response?.data || e);
       }
     })();
-  }, [storeIdToFocus]);
+  }, [storeIdToFocus, missions]);
 
-  // 4-B) 리스트 선택 시: 좌표로만 이동
+  /* 4-B) 좌표 포커스만 */
   useEffect(() => {
     const kakao = window.kakao;
     const map = mapRef.current;
