@@ -58,6 +58,17 @@ function Inner() {
     { value: 2, label: "기타" },
   ];
 
+  // 카테고리를 코드("0"|"1"|"2")로 보정
+  const catToCode = (v) => {
+    if (v === null || v === undefined || v === "") return "";
+    const s = String(v).trim().toUpperCase();
+    if (s === "CAFE") return "0";
+    if (s === "RESTAURANT") return "1";
+    if (s === "ETC") return "2";
+    if (["0", "1", "2"].includes(s)) return s;
+    const n = Number(s);
+    return Number.isInteger(n) && n >= 0 && n <= 2 ? String(n) : "";
+  };
   const normalizeBizNo = (raw) => (raw || "").replace(/[^0-9]/g, "");
   const isValidBizNo = (raw) => normalizeBizNo(raw).length === 10;
 
@@ -69,9 +80,7 @@ function Inner() {
     setShopName((prev) => prev || pickName(s));
     setShopNum((prev) => prev || (s.businessNumber ?? ""));
     setAddr((prev) => prev || (s.address ?? ""));
-    setSelectValue((prev) =>
-      prev !== "" ? prev : (s.category !== undefined && s.category !== null ? String(s.category) : "")
-    );
+    setSelectValue((prev) => (prev !== "" ? prev : catToCode(s.category)));
 
     const lat = toNumOrNull(s.latitude ?? s.lat ?? s.y);
     const lng = toNumOrNull(s.longitude ?? s.lng ?? s.x);
@@ -118,11 +127,7 @@ function Inner() {
         setShopName(pickName(data));
         setShopNum(data?.businessNumber || "");
         setAddr(data?.address || "");
-        setSelectValue(
-          data?.category !== undefined && data?.category !== null
-            ? String(data.category)
-            : ""
-        );
+        setSelectValue(catToCode(data?.category));
 
         const lat = toNumOrNull(data?.latitude ?? data?.lat);
         const lng = toNumOrNull(data?.longitude ?? data?.lng);
@@ -171,9 +176,15 @@ function Inner() {
       return;
     }
 
+    const catCode = catToCode(selectValue);
+    if (catCode === "") {
+      setMessage({ type: "error", text: "업종을 선택해주세요." });
+      return;
+    }
+
     const payload = {
       name: shopName.trim(),
-      category: Number(selectValue),
+      category: parseInt(catCode, 10), // 0 | 1 | 2
       businessNumber: normalizeBizNo(shopNum),
       address: addr.trim(),
       latitude: latLng.lat,

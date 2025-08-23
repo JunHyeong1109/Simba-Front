@@ -26,6 +26,19 @@ const catLabel = (c) => {
   return map[c] || c || "-";
 };
 
+/** 카테고리 값을 코드("0"|"1"|"2")로 강제 변환 */
+const catToCode = (v) => {
+  if (v === null || v === undefined || v === "") return "";
+  const s = String(v).trim().toUpperCase();
+  if (s === "CAFE") return "0";
+  if (s === "RESTAURANT") return "1";
+  if (s === "ETC") return "2";
+  if (["0", "1", "2"].includes(s)) return s;
+  // 혹시 숫자 형태면 보정
+  const n = Number(s);
+  return Number.isInteger(n) && n >= 0 && n <= 2 ? String(n) : "";
+};
+
 /** ✅ 백엔드 응답을 화면용 공통 스키마로 정규화 (ownerName 제거) */
 const normalizeStore = (raw = {}) => {
   const id =
@@ -52,9 +65,9 @@ const normalizeStore = (raw = {}) => {
     raw.fullAddress ??
     "-";
 
-  const category =
-    raw.category ?? raw.categoryCode ?? raw.type ?? raw.storeType ?? null;
-
+  const category = catToCode(
+    raw.category ?? raw.categoryCode ?? raw.type ?? raw.storeType ?? ""
+  );
   const latitude = toNum(
     raw.latitude ?? raw.lat ?? raw.y ?? raw.geoLat ?? raw.location?.lat
   );
