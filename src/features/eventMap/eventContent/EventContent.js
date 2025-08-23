@@ -16,6 +16,10 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsErr, setReviewsErr] = useState("");
 
+  // ── 이미지 뷰어(라이트박스)
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerSrc, setViewerSrc] = useState("");
+
   // ── 파생값 (selected 없어도 안전)
   const mission = selected?.mission || selected || {};
   const store = mission?.store || selected?.store || {};
@@ -105,6 +109,7 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
     setModalOpen(true);
   };
 
+  // 리뷰 정규화: 이미지들까지 추출
   const normalizeReview = (r) => {
     const userName =
       r.userName || r.username || r.nickname || r.user?.name || "사용자";
@@ -114,7 +119,17 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
     const text = r.text ?? r.content ?? "";
     const id =
       r.id ?? r.reviewId ?? r._id ?? Math.random().toString(36).slice(2);
-    return { id, userName, rating, text };
+
+    // 다양한 키에서 이미지 배열 생성
+    let images = [];
+    if (Array.isArray(r.images)) images = r.images.filter(Boolean);
+    else if (Array.isArray(r.photos)) images = r.photos.filter(Boolean);
+    else if (Array.isArray(r.imgUrls)) images = r.imgUrls.filter(Boolean);
+    else if (r.imgUrl || r.imageUrl || r.photoUrl) {
+      images = [r.imgUrl || r.imageUrl || r.photoUrl].filter(Boolean);
+    }
+
+    return { id, userName, rating, text, images };
   };
 
   // 🔎 모달 오픈 시, 가게 전체 리뷰 로드 (/itda/reviews?storeId=...)
@@ -270,7 +285,7 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
               </button>
             </div>
 
-            {/* 본문 (스크롤, 5개 정도 보이는 높이) */}
+            {/* 본문 */}
             <div className="rv-modal-body">
               {reviewsLoading && reviews.length === 0 ? (
                 <div style={{ color: "#666" }}>리뷰 불러오는 중…</div>
@@ -289,13 +304,56 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
                           {"☆".repeat(Math.max(0, 5 - Math.floor(r.rating || 0)))}
                         </span>
                       </div>
+
                       {r.text && <p className="rv-review-text">{r.text}</p>}
+
+                      {Array.isArray(r.images) && r.images.length > 0 && (
+                        <div className="rv-images-grid">
+                          {r.images.map((src, i) => (
+                            <img
+                              key={i}
+                              src={src}
+                              alt="리뷰 이미지"
+                              className="rv-image"
+                              loading="lazy"
+                              onClick={() => {
+                                setViewerSrc(src);
+                                setViewerOpen(true);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </article>
                   ))}
                 </div>
               )}
             </div>
           </div>
+
+          {/* 라이트박스(큰 이미지) */}
+          {viewerOpen && (
+            <div
+              className="rv-viewer-backdrop"
+              onClick={() => setViewerOpen(false)}
+            >
+              <div className="rv-viewer" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="rv-viewer-close"
+                  aria-label="닫기"
+                  onClick={() => setViewerOpen(false)}
+                />
+                {viewerSrc && (
+                  <img
+                    src={viewerSrc}
+                    alt="리뷰 큰 이미지"
+                    className="rv-viewer-img"
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

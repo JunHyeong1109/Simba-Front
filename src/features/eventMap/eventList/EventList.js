@@ -148,7 +148,7 @@ function EventList({ storeId, address, onPickMission }) {
               title: m.title || "미션",
               start: m.startAt || m.startDate || null,
               end: m.endAt || m.endDate || null,
-              _raw: m, // ✅ 원본 보관(클릭 시 상세로 전달)
+              _raw: m, // 원본
             }));
           if (alive) setOngoing(flat);
         } catch (e) {
@@ -191,7 +191,7 @@ function EventList({ storeId, address, onPickMission }) {
     address?.jibun ||
     "-";
 
-  // ✅ 리스트 미션 클릭 → 상위로 선택 전달
+  // 리스트 미션 클릭 → 상위로 전달
   const handlePick = (m) => {
     if (!onPickMission || !m?._raw) return;
     const lat =
@@ -209,10 +209,14 @@ function EventList({ storeId, address, onPickMission }) {
       mission: m._raw,
       lat,
       lng,
-      address, // 현재 패널에 보이는 주소 그대로 전달
-      store,   // 현재 매장 정보 전달
+      address,
+      store,
     });
   };
+
+  // 리뷰 개수 표기값
+  const reviewCountLabel =
+    typeof reviewCount === "number" ? String(reviewCount) : "-";
 
   return (
     <div className="event-list" role="region" aria-label="매장 정보">
@@ -241,8 +245,12 @@ function EventList({ storeId, address, onPickMission }) {
               )}
             </div>
 
-            {/* ✅ 변경: 개수 대신 고정 텍스트 */}
-            <div className="store-review-quick">리뷰 요약</div>
+            {/* ⬇️ 여기만 변경: 리뷰 요약 | 리뷰 개수 : N */}
+            <div className="store-review-quick">
+              리뷰 요약
+              {" "} | {" "}
+              리뷰 개수 : {reviewCountLabel}
+            </div>
 
             {summary && (
               <div className="store-summary" title={summary}>

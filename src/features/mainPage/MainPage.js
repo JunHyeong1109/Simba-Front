@@ -149,7 +149,7 @@ export default function MainPage() {
                   key={s.storeId}
                   className="store-card"
                   title={s.name}
-                  onClick={() => navigate(`${MAP_ROUTE}?storeId=${s.storeId}`)}
+                  onClick={() => navigate(`${MAP_ROUTE}?storeId=${encodeURIComponent(s.storeId)}`)}
                 >
                   <div className="store-thumb">
                     {s.poster ? (

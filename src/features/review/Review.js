@@ -1,17 +1,13 @@
 // src/pages/ReviewPage.jsx
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../api";
 import "./Review.css";
 
 export default function ReviewPage() {
   const [params] = useSearchParams();
   const missionId = params.get("missionId");
-
-  // ───────── util
-  const safeId = (id) => String(id ?? "").trim();
-  const makeMissionReviewUrl = (id) =>
-    `/itda/missions/${encodeURIComponent(safeId(id))}/reviews`;
+  const navigate = useNavigate();
 
   // ───────── user
   const [user, setUser] = useState(null);
@@ -34,98 +30,16 @@ export default function ReviewPage() {
     return () => { alive = false; };
   }, []);
 
-  // ───────── list (server)
-  const [reviews, setReviews] = useState([]);
-  const [loadingReviews, setLoadingReviews] = useState(false);
-  const [reviewsErr, setReviewsErr] = useState("");
-
-  const formatKSTDate = (date = new Date()) => {
-    const parts = new Intl.DateTimeFormat("ko-KR", {
-      timeZone: "Asia/Seoul",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(date);
-    const y = parts.find((p) => p.type === "year")?.value || "";
-    const m = parts.find((p) => p.type === "month")?.value || "";
-    const d = parts.find((p) => p.type === "day")?.value || "";
-    return `${y}.${m}.${d}`;
-  };
-
-  // 백엔드 ReviewResponse → 화면 모델
-  const normalizeReview = (r) => {
-    const ratingNum = Math.max(
-      0,
-      Math.min(5, Math.floor(typeof r.rating === "number" ? r.rating : Number(r.rating) || 0))
-    );
-    const ts = r.createdAt || r.updatedAt || r.created_at || r.ts || Date.now();
-    const imgOne = r.imgUrl ? [r.imgUrl] : [];
-    const name =
-      r.userName || r.username || r.nickname || (r.userId ? `사용자 #${r.userId}` : "사용자");
-
-    return {
-      id: r.id ?? r.reviewId ?? r._id ?? Math.random().toString(36).slice(2),
-      ts: new Date(ts).valueOf() || Date.now(),
-      name,
-      text: r.content ?? "",
-      rating: ratingNum,
-      date: formatKSTDate(new Date(ts)),
-      images: imgOne,
-    };
-  };
-
-  const fetchReviews = useCallback(async () => {
-    const sid = safeId(missionId);
-    if (!sid) {
-      setReviews([]);
-      setReviewsErr("잘못된 접근입니다. (missionId가 없습니다)");
-      return;
-    }
-    setLoadingReviews(true);
-    setReviewsErr("");
-    try {
-      let rows = [];
-      const attempts = [
-        async () =>
-          api
-            .get(makeMissionReviewUrl(sid), { withCredentials: true })
-            .then(({ data }) => (Array.isArray(data) ? data : data?.items || data?.content || [])),
-        async () =>
-          api
-            .get("/itda/reviews", { params: { missionId: sid }, withCredentials: true })
-            .then(({ data }) => (Array.isArray(data) ? data : data?.items || data?.content || [])),
-      ];
-      for (const tryCall of attempts) {
-        try {
-          rows = await tryCall();
-          break;
-        } catch {
-          /* try next */
-        }
-      }
-      setReviews((rows || []).map(normalizeReview));
-    } catch (e) {
-      setReviews([]);
-      setReviewsErr(e?.response?.data?.message || e?.message || "리뷰를 불러오지 못했습니다.");
-    } finally {
-      setLoadingReviews(false);
-    }
-  }, [missionId]);
-
-  useEffect(() => { fetchReviews(); }, [fetchReviews]);
-
   // ───────── compose
   const [text, setText] = useState("");
   const [rating, setRating] = useState(0);
-  const [images, setImages] = useState([]); // 로컬 프리뷰는 여러 장 유지(서버는 1장만 저장)
+  const [images, setImages] = useState([]); // 로컬 프리뷰(최대 10장), 서버는 1장만 저장
   const fileInputRef = useRef(null);
 
   // preview modal
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryMode, setGalleryMode] = useState("preview");
   const [galleryIndex, setGalleryIndex] = useState(0);
-
-  const handleStarClick = (v) => setRating(v);
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files || []);
@@ -166,46 +80,39 @@ export default function ReviewPage() {
     else setGalleryIndex(idx >= arr.length ? arr.length - 1 : idx);
   };
 
-  // ───────── submit
-  // ✅ 요구사항: multipart/form-data 로 전송하되
-  //    - JSON 본문을 "request" 파트에 Blob으로 첨부 (@RequestPart("request"))
-  //    - 파일이 있으면 "image" 파트로 첨부 (@RequestPart(value="image", required=false))
+  // ───────── submit (multipart/form-data + request(JSON) + image)
   const handleAddReview = async () => {
-    const sid = safeId(missionId);
-    if (!sid) return alert("잘못된 접근입니다. (missionId 없음)");
+    if (!missionId) return alert("잘못된 접근입니다. (missionId 없음)");
     if (!isReviewer) return;
-    if (!text.trim() || rating === 0) return;
 
-    const url = makeMissionReviewUrl(sid);
+    const content = text.trim();
+    if (content.length < 10) {
+      alert("최소 10글자 이상 작성해야 합니다.");
+      return;
+    }
+    if (rating === 0) {
+      alert("별점을 선택해주세요.");
+      return;
+    }
+
+    const url = `/itda/missions/${encodeURIComponent(missionId)}/reviews`;
     const firstFile = images[0]?.file || null;
 
     try {
       const formData = new FormData();
 
-      // request JSON 파트
-      const requestData = {
-        content: text.trim(),
-        rating: Number(rating),
-      };
-      const jsonBlob = new Blob([JSON.stringify(requestData)], {
-        type: "application/json",
-      });
+      // request JSON 본문 (@RequestPart("request"))
+      const requestData = { content, rating: Number(rating) };
+      const jsonBlob = new Blob([JSON.stringify(requestData)], { type: "application/json" });
       formData.append("request", jsonBlob, "request.json");
 
-      // 선택 이미지(있으면)
-      if (firstFile) {
-        formData.append("image", firstFile, firstFile.name);
-      }
+      // 선택 이미지(있으면) – 서버는 1장만 저장
+      if (firstFile) formData.append("image", firstFile, firstFile.name);
 
-      // ⚠️ Content-Type 설정 금지 (boundary 자동)
       await api.post(url, formData, { withCredentials: true });
 
-      await fetchReviews();
-      setText("");
-      setRating(0);
-      images.forEach((img) => img.previewUrl && URL.revokeObjectURL(img.previewUrl));
-      setImages([]);
       alert("리뷰가 등록되었습니다.");
+      navigate("/"); // 메인 페이지로 이동
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -216,79 +123,19 @@ export default function ReviewPage() {
     }
   };
 
-  // ───────── sort
-  const [sortBy, setSortBy] = useState("latest");
-  const sortedReviews = useMemo(() => {
-    const list = [...reviews];
-    if (sortBy === "rating") {
-      list.sort((a, b) => (b.rating !== a.rating ? b.rating - a.rating : (b.ts || 0) - (a.ts || 0)));
-    } else {
-      list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-    }
-    return list;
-  }, [reviews, sortBy]);
-
+  const fileDisabled = !isReviewer || !missionId || images.length >= 10;
   const filesCountLabel = images.length
     ? `${images.length}개 선택됨 (서버 저장은 1장)`
     : "선택된 이미지 없음";
-  const fileDisabled = !isReviewer || !missionId || images.length >= 10;
 
   return (
     <div className="review-page">
-      {/* 상단 툴바 */}
+      {/* 상단 제목만 유지 */}
       <div className="review-toolbar">
-        <h2 className="review-title">전체 리뷰</h2>
-        <div className="review-sort">
-          <label htmlFor="sort" className="sr-only">정렬</label>
-          <select
-            id="sort"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="review-sort-select"
-          >
-            <option value="latest">최신순</option>
-            <option value="rating">별점순</option>
-          </select>
-        </div>
+        <h2 className="review-title">리뷰 작성</h2>
       </div>
 
-      {/* 리뷰 리스트 */}
-      <div className="review-list">
-        {loadingReviews ? (
-          <p className="review-empty">불러오는 중…</p>
-        ) : reviewsErr ? (
-          <p className="review-empty">{reviewsErr}</p>
-        ) : sortedReviews.length === 0 ? (
-          <p className="review-empty">아직 리뷰가 없습니다.</p>
-        ) : (
-          sortedReviews.map((r) => (
-            <div key={r.id} className="review-item">
-              <div className="review-avatar" aria-hidden>👤</div>
-              <div className="review-content">
-                <div className="review-top">
-                  <span className="review-name">{r.name}</span>
-                  <span className="review-date">{r.date}</span>
-                </div>
-                <div className="review-stars readonly" aria-label={`별점 ${r.rating}점`}>
-                  {"★".repeat(r.rating)}
-                  {"☆".repeat(5 - r.rating)}
-                </div>
-                <div className="review-text">{r.text}</div>
-
-                {r.images.length > 0 && (
-                  <div className="review-images-grid">
-                    {r.images.map((src, i) => (
-                      <img key={i} src={src} alt="리뷰 이미지" className="review-image" loading="lazy" />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* 작성 영역 */}
+      {/* 작성 영역만 표시 */}
       <div className={`review-input-container ${!isReviewer || !missionId ? "disabled" : ""}`}>
         {loadingUser ? (
           <div className="review-guard">사용자 정보를 불러오는 중…</div>
@@ -316,7 +163,7 @@ export default function ReviewPage() {
 
         {/* 내용 */}
         <textarea
-          placeholder="리뷰를 작성해주세요."
+          placeholder="리뷰를 작성해주세요. (최소 10글자)"
           className="review-textarea"
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -364,7 +211,7 @@ export default function ReviewPage() {
           >
             삭제
           </button>
-          <span className="file-name" aria-live="polite">{images.length ? `${images.length}개 선택됨 (서버 저장은 1장)` : "선택된 이미지 없음"}</span>
+          <span className="file-name" aria-live="polite">{filesCountLabel}</span>
         </div>
 
         <button onClick={handleAddReview} className="review-button" disabled={!isReviewer || !missionId}>
@@ -372,7 +219,7 @@ export default function ReviewPage() {
         </button>
       </div>
 
-      {/* 하단 갤러리 모달 */}
+      {/* 하단 갤러리 모달 (미리보기/삭제) */}
       {galleryOpen && images.length > 0 && (
         <div className="gallery-overlay" aria-modal="true" role="dialog">
           <div className="gallery-sheet small" role="document">

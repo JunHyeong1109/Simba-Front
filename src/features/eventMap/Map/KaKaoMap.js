@@ -140,7 +140,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
         }
         setStores(Array.from(uniq.values()));
       } catch {
-        if (!alive) setStores([]);
+        if (alive) setStores([]);
       }
     })();
     return () => { alive = false; };
