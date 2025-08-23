@@ -21,15 +21,31 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
   const onMissionSelectRef = useRef(onMissionSelect);
   useEffect(() => { onMissionSelectRef.current = onMissionSelect; }, [onMissionSelect]);
 
-  // 포커스 마커 (메인페이지 → 지도 진입 시 강조)
+  // 메인 진입 강조용 포커스 마커 & 타이머
   const focusMarkerRef = useRef(null);
+  const focusHideTimerRef = useRef(null);
+
+  // 지도 이벤트 핸들러 참조(정리용)
+  const onMapIdleRef = useRef(null);
+  const onMapClickRef = useRef(null);
+  const onMapDragStartRef = useRef(null);
+  const onMapZoomChangedRef = useRef(null);
+
+  const hideFocusMarker = () => {
+    if (focusHideTimerRef.current) {
+      clearTimeout(focusHideTimerRef.current);
+      focusHideTimerRef.current = null;
+    }
+    if (focusMarkerRef.current) {
+      focusMarkerRef.current.setMap(null);
+      focusMarkerRef.current = null;
+    }
+  };
 
   // 1) 지도 초기화
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-
-    let onMapIdle = null;
 
     (async () => {
       getCurrentLocation(async (lat, lng) => {
@@ -65,23 +81,32 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
           }
         };
 
+        // 중심 주소 표시
         searchAddrFromCoords(map.getCenter(), displayCenterInfo);
-        onMapIdle = () => searchAddrFromCoords(map.getCenter(), displayCenterInfo);
-        kakao.maps.event.addListener(map, "idle", onMapIdle);
+        onMapIdleRef.current = () => searchAddrFromCoords(map.getCenter(), displayCenterInfo);
+        kakao.maps.event.addListener(map, "idle", onMapIdleRef.current);
+
+        // 강조 마커를 쉽게 숨기기 위한 사용자 이벤트
+        onMapClickRef.current = () => hideFocusMarker();
+        onMapDragStartRef.current = () => hideFocusMarker();
+        onMapZoomChangedRef.current = () => hideFocusMarker();
+        kakao.maps.event.addListener(map, "click", onMapClickRef.current);
+        kakao.maps.event.addListener(map, "dragstart", onMapDragStartRef.current);
+        kakao.maps.event.addListener(map, "zoom_changed", onMapZoomChangedRef.current);
       });
     })();
 
     return () => {
       const kakao = window.kakao;
-      if (kakao && mapRef.current && onMapIdle) {
-        kakao.maps.event.removeListener(mapRef.current, "idle", onMapIdle);
+      if (kakao && mapRef.current) {
+        if (onMapIdleRef.current) kakao.maps.event.removeListener(mapRef.current, "idle", onMapIdleRef.current);
+        if (onMapClickRef.current) kakao.maps.event.removeListener(mapRef.current, "click", onMapClickRef.current);
+        if (onMapDragStartRef.current) kakao.maps.event.removeListener(mapRef.current, "dragstart", onMapDragStartRef.current);
+        if (onMapZoomChangedRef.current) kakao.maps.event.removeListener(mapRef.current, "zoom_changed", onMapZoomChangedRef.current);
       }
       storeMarkersRef.current.forEach((m) => m.setMap(null));
       storeMarkersRef.current = [];
-      if (focusMarkerRef.current) {
-        focusMarkerRef.current.setMap(null);
-        focusMarkerRef.current = null;
-      }
+      hideFocusMarker();
       mapRef.current = null;
       geocoderRef.current = null;
     };
@@ -134,6 +159,9 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     // 클릭 핸들러
     const attachClick = (marker, s) => {
       kakao.maps.event.addListener(marker, "click", () => {
+        // 강조 마커가 떠있다면 즉시 숨김
+        hideFocusMarker();
+
         const lat = Number(s.latitude);
         const lng = Number(s.longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
@@ -146,7 +174,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
             jibun = res[0]?.address?.address_name || "";
           }
 
-          // ✅ 부모에 알림: mission 없이 store만 전달
+          // 부모에 알림: mission 없이 store만 전달
           onMissionSelectRef.current?.({
             mission: null,
             store: s,
@@ -168,7 +196,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
       const marker = new kakao.maps.Marker({
         position: pos,
         map,
-        // ✅ 매장 타이틀: storeName 키 우선
+        // 매장 타이틀: storeName 키 우선
         title: s.storeName || s.name || `매장#${s.id}`,
         zIndex: 2,
       });
@@ -178,7 +206,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     }
   }, [stores]);
 
-  // 4-A) /map?storeId=... → 해당 위치로 이동 (자동 말풍선 오픈 제거)
+  // 4-A) /map?storeId=... → 해당 위치로 이동 (강조 마커는 자동 숨김)
   useEffect(() => {
     const kakao = window.kakao;
     const map = mapRef.current;
@@ -195,27 +223,42 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
         const pos = new kakao.maps.LatLng(lat, lng);
         map.panTo(pos);
 
-        // 포커스 마커만 표시 (말풍선은 열지 않음)
+        // 강조 마커 표시 (말풍선 없음)
         if (!focusMarkerRef.current) {
           focusMarkerRef.current = new kakao.maps.Marker({ zIndex: 4 });
         }
         focusMarkerRef.current.setPosition(pos);
         focusMarkerRef.current.setMap(map);
 
-        // 혹시 열려 있을 수 있는 창들 닫기(고정 방지)
-        // (현재는 인포윈도우를 사용하지 않지만, 남아있을 가능성 방지차원)
-        if (map?.closeOverlay) try { map.closeOverlay(); } catch {}
+        // 일정 시간 후 자동 숨김 (1.5초)
+        if (focusHideTimerRef.current) {
+          clearTimeout(focusHideTimerRef.current);
+        }
+        focusHideTimerRef.current = setTimeout(() => {
+          hideFocusMarker();
+        }, 1500);
       } catch (e) {
         console.warn("store focus failed:", e?.response?.data || e);
       }
     })();
+
+    // storeIdToFocus가 바뀌면 기존 타이머 정리
+    return () => {
+      if (focusHideTimerRef.current) {
+        clearTimeout(focusHideTimerRef.current);
+        focusHideTimerRef.current = null;
+      }
+    };
   }, [storeIdToFocus]);
 
-  // 4-B) 리스트/상세에서 좌표 전달 시 지도 이동
+  // 4-B) 리스트/상세에서 좌표 전달 시 → 강조 마커 즉시 숨김 + 지도 이동
   useEffect(() => {
     const kakao = window.kakao;
     const map = mapRef.current;
     if (!kakao || !map || !focus) return;
+
+    // 외부 포커스가 오면 강조 마커는 숨김
+    hideFocusMarker();
 
     const lat = Number(focus.lat);
     const lng = Number(focus.lng);
