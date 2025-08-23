@@ -101,7 +101,6 @@
   margin-bottom: 8px;
   word-break: break-word;
   overflow-wrap: anywhere;
-  white-space: pre-wrap; /* 줄바꿈 보존 */
 }
 
 /* 여러 장 출력 레이아웃 */
@@ -163,19 +162,19 @@
   border-radius: 4px;
 }
 
-/* 텍스트 입력 → textarea (엔터 줄바꿈, 마우스 리사이즈 금지) */
+/* textarea (6줄, 리사이즈 금지) */
 .review-textarea {
   width: 100%;
-  min-height: 120px;
   padding: 10px 12px;
   margin: 6px 0 10px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   font-size: 14px;
-  line-height: 1.6;
   box-sizing: border-box;
-  resize: none;              /* 크기 조절 금지 */
-  white-space: pre-wrap;     /* 줄바꿈 보존 */
+  resize: none;
+  line-height: 1.6;
+  min-height: 6em;
+  white-space: pre-wrap;
 }
 .review-textarea:focus {
   border-color: #3b82f6;
@@ -183,7 +182,7 @@
   outline: none;
 }
 
-/* 파일 업로드 줄 */
+/* 파일 + 버튼들 */
 .review-file-row {
   display: flex;
   align-items: center;
@@ -191,49 +190,41 @@
   margin-bottom: 10px;
 }
 
-/* ---------- File input pretty button ---------- */
-.review-file {
-  font-size: 0;                 /* 기본 파일명 텍스트 숨김 */
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
-  overflow: hidden;
-  cursor: pointer;
-  min-height: 38px;
+/* 숨김 input */
+.review-file-input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
-.review-file::file-selector-button {
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 12px;
-  border: none;
-  background: #4e6cff;
-  color: #fff;
-  cursor: pointer;
-  height: 100%;
-  outline: none;
-  transition: background-color .15s ease, transform .06s ease, opacity .15s ease;
-}
-.review-file::-webkit-file-upload-button {
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 12px;
-  border: none;
-  background: #4e6cff;
-  color: #fff;
-  cursor: pointer;
-  height: 100%;
-  outline: none;
-  transition: background-color .15s ease, transform .06s ease, opacity .15s ease;
-}
-.review-file:hover::file-selector-button,
-.review-file:hover::-webkit-file-upload-button { background: #3b53d9; }
-.review-file:active::file-selector-button,
-.review-file:active::-webkit-file-upload-button { transform: translateY(1px); }
-.review-file:disabled { opacity: .6; cursor: not-allowed; }
-.review-file:disabled::file-selector-button,
-.review-file:disabled::-webkit-file-upload-button { cursor: not-allowed; }
 
-/* 미리보기/삭제 버튼 */
+/* 커스텀 파일 버튼(일반 button) */
+.review-file-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #4e6cff;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  transition: background-color .15s ease, transform .06s ease, opacity .15s ease;
+}
+.review-file-btn .btn-icon { font-size: 15px; line-height: 1; }
+.review-file-btn:hover { background: #3b53d9; }
+.review-file-btn:active { transform: translateY(1px); }
+.review-file-btn:disabled { opacity: .6; cursor: not-allowed; }
+
 .preview-btn {
   background: #4e6cff;
   color: #fff;
@@ -262,16 +253,17 @@
 }
 .review-button:disabled { opacity: .6; cursor: not-allowed; }
 
-/* ───────── 하단 갤러리 모달 (X로만 닫기) ───────── */
+/* ───────── 하단 갤러리 모달 ───────── */
 .gallery-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.45);
   display: flex;
-  align-items: flex-end; /* 하단 시트 */
+  align-items: flex-end;
   justify-content: center;
   z-index: 60;
 }
+
 .gallery-sheet {
   width: min(960px, 96vw);
   max-height: 80vh;
@@ -282,10 +274,11 @@
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
 }
-/* 축소 버전 (컴포넌트에서 .small 클래스 함께 사용) */
+
+/* 더 작은 시트(강하게 축소) */
 .gallery-sheet.small {
-  width: min(720px, 92vw);
-  max-height: 70vh;
+  width: min(360px, 92vw);
+  max-height: 50vh;
 }
 
 /* 헤더 */
@@ -294,15 +287,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-bottom: 1px solid #eee;
 }
-.gallery-title {
-  font-weight: 700;
-}
+.gallery-title { font-weight: 700; }
 .gallery-close {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   border: 1px solid #e5e7eb;
   background: #fff;
@@ -332,12 +323,12 @@
   box-shadow: 0 4px 14px rgba(0,0,0,.08);
 }
 
-/* 본문(이미지/네비) */
+/* 본문 */
 .gallery-body {
   position: relative;
   display: grid;
   place-items: center;
-  padding: 10px;
+  padding: 8px;
   background: #fafafa;
   overflow: hidden;
 }
@@ -349,30 +340,30 @@
   border: 1px solid #e5e7eb;
   background: #fff;
 }
-/* 축소 이미지 */
+/* 더 작은 이미지 */
 .gallery-image.small {
-  max-width: 88%;
-  max-height: 48vh;
+  max-width: 84%;
+  max-height: 28vh;
 }
 
 .gallery-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  min-width: 36px;
-  min-height: 36px;
+  min-width: 32px;
+  min-height: 32px;
   border-radius: 999px;
   border: none;
   background: rgba(17,24,39,.85);
   color: #fff;
-  font-size: 22px;
+  font-size: 20px;
   display: grid;
   place-items: center;
   cursor: pointer;
   user-select: none;
 }
-.gallery-nav.left  { left: 14px; }
-.gallery-nav.right { right: 14px; }
+.gallery-nav.left  { left: 12px; }
+.gallery-nav.right { right: 12px; }
 .gallery-nav:hover { background: rgba(17,24,39,.95); }
 
 /* 푸터 */
@@ -380,37 +371,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 10px 12px;
   border-top: 1px solid #eee;
   background: #fff;
 }
-.gallery-count { color: #6b7280; font-size: 13px; }
+.gallery-count { color: #6b7280; font-size: 12px; }
 
 .delete-btn {
   background: #ef4444;
   color: #fff;
   border: none;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border-radius: 10px;
   font-weight: 700;
   cursor: pointer;
 }
 .delete-btn:hover { background: #dc2626; }
-
-/* 반응형 살짝 보정 */
-@media (max-width: 520px) {
-  .review-images-grid {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  }
-  .gallery-sheet.small {
-    width: 96vw;
-    max-height: 68vh;
-  }
-  .gallery-image.small {
-    max-height: 44vh;
-  }
-  .review-textarea {
-    min-height: 100px;
-  }
-}
