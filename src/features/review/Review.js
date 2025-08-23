@@ -67,10 +67,10 @@ export default function ReviewPage() {
       id: r.id ?? r.reviewId ?? r._id ?? Math.random().toString(36).slice(2),
       ts: new Date(ts).valueOf() || Date.now(),
       name,
-      text: r.content ?? "",     // ← content 사용
-      rating: ratingNum,         // ← rating 정수(0~5)
+      text: r.content ?? "",
+      rating: ratingNum,
       date: formatKSTDate(new Date(ts)),
-      images: imgOne,            // ← 단일 imgUrl을 배열로 표시
+      images: imgOne,
     };
   };
 
@@ -166,7 +166,10 @@ export default function ReviewPage() {
     else setGalleryIndex(idx >= arr.length ? arr.length - 1 : idx);
   };
 
-  // ───────── submit (백엔드 키 기준: content, rating, (단일) 이미지 → imgUrl)
+  // ───────── submit
+  // ✅ 요구사항: multipart/form-data 로 전송하되
+  //    - JSON 본문을 "request" 파트에 Blob으로 첨부 (@RequestPart("request"))
+  //    - 파일이 있으면 "image" 파트로 첨부 (@RequestPart(value="image", required=false))
   const handleAddReview = async () => {
     const sid = safeId(missionId);
     if (!sid) return alert("잘못된 접근입니다. (missionId 없음)");
@@ -176,35 +179,26 @@ export default function ReviewPage() {
     const url = makeMissionReviewUrl(sid);
     const firstFile = images[0]?.file || null;
 
-    // 전송 시나리오:
-    //  A) 파일 있음 → multipart + 파일 필드명 폴백(image → file → img)
-    //  B) 파일 없음 → JSON { content, rating }
-    const sendFD = (field) => {
-      const fd = new FormData();
-      fd.append("content", text.trim());
-      fd.append("rating", String(rating));
-      if (firstFile) fd.append(field, firstFile, firstFile.name);
-      return api.post(url, fd, { withCredentials: true });
-    };
-    const sendJSON = () =>
-      api.post(url, { content: text.trim(), rating }, { withCredentials: true });
-
     try {
+      const formData = new FormData();
+
+      // request JSON 파트
+      const requestData = {
+        content: text.trim(),
+        rating: Number(rating),
+      };
+      const jsonBlob = new Blob([JSON.stringify(requestData)], {
+        type: "application/json",
+      });
+      formData.append("request", jsonBlob, "request.json");
+
+      // 선택 이미지(있으면)
       if (firstFile) {
-        try {
-          await sendFD("image");
-        } catch (e1) {
-          if (e1?.response?.status !== 400) throw e1;
-          try {
-            await sendFD("file");
-          } catch (e2) {
-            if (e2?.response?.status !== 400) throw e2;
-            await sendFD("img");
-          }
-        }
-      } else {
-        await sendJSON();
+        formData.append("image", firstFile, firstFile.name);
       }
+
+      // ⚠️ Content-Type 설정 금지 (boundary 자동)
+      await api.post(url, formData, { withCredentials: true });
 
       await fetchReviews();
       setText("");
@@ -370,7 +364,7 @@ export default function ReviewPage() {
           >
             삭제
           </button>
-          <span className="file-name" aria-live="polite">{filesCountLabel}</span>
+          <span className="file-name" aria-live="polite">{images.length ? `${images.length}개 선택됨 (서버 저장은 1장)` : "선택된 이미지 없음"}</span>
         </div>
 
         <button onClick={handleAddReview} className="review-button" disabled={!isReviewer || !missionId}>
@@ -378,7 +372,7 @@ export default function ReviewPage() {
         </button>
       </div>
 
-      {/* 하단 갤러리 모달(축소) */}
+      {/* 하단 갤러리 모달 */}
       {galleryOpen && images.length > 0 && (
         <div className="gallery-overlay" aria-modal="true" role="dialog">
           <div className="gallery-sheet small" role="document">

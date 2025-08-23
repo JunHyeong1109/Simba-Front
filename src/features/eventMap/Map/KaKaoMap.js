@@ -10,6 +10,7 @@ const KAKAO_APP_KEY = "261b88294b81d5800071641ecc633dcb";
 
 export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
   const [stores, setStores] = useState([]);
+  const [hotStoreIds, setHotStoreIds] = useState(new Set()); // ✅ 진행 가능한 미션 매장
 
   const mapRef = useRef(null);
   const geocoderRef = useRef(null);
@@ -145,6 +146,26 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     return () => { alive = false; };
   }, []);
 
+  // 2-B) 진행 가능한 미션이 있는 매장 목록(Set) 불러오기 → 빨간 마커 표시용
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.get("/itda/missions/joinable");
+        const list = Array.isArray(data) ? data : data?.items || [];
+        const set = new Set();
+        for (const m of list) {
+          const sid = m?.store?.id ?? m?.storeId;
+          if (sid) set.add(Number(sid));
+        }
+        if (alive) setHotStoreIds(set);
+      } catch {
+        if (alive) setHotStoreIds(new Set());
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
   // 3) 매장 마커 렌더링 (매장당 1개)
   useEffect(() => {
     const kakao = window.kakao;
@@ -156,17 +177,33 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     storeMarkersRef.current.forEach((m) => m.setMap(null));
     storeMarkersRef.current = [];
 
+    // ✅ 마커 이미지 준비 (빨간 핀)
+    const redPinSVG =
+      'data:image/svg+xml;utf8,' +
+      encodeURIComponent(
+        `<svg width="24" height="34" viewBox="0 0 24 34" xmlns="http://www.w3.org/2000/svg">
+          <defs><filter id="s" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity=".25"/></filter></defs>
+          <path d="M12 33c5-8 10-12 10-19A10 10 0 1 0 2 14c0 7 5 11 10 19z" fill="#ef4444" filter="url(#s)"/>
+          <circle cx="12" cy="12" r="4.2" fill="white"/>
+        </svg>`
+      );
+    const redImg = new kakao.maps.MarkerImage(
+      redPinSVG,
+      new kakao.maps.Size(24, 34),
+      { offset: new kakao.maps.Point(12, 34) }
+    );
+
     // 클릭 핸들러
     const attachClick = (marker, s) => {
       kakao.maps.event.addListener(marker, "click", () => {
-        // 강조 마커가 떠있다면 즉시 숨김
+        // 강조 마커 숨기기
         hideFocusMarker();
 
         const lat = Number(s.latitude);
         const lng = Number(s.longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-        // 역지오코딩으로 도로명/지번 주소 확보
+        // 역지오코딩 → 도로명/지번
         geocoder.coord2Address(lng, lat, (res, status) => {
           let road = "", jibun = "";
           if (status === kakao.maps.services.Status.OK && res?.[0]) {
@@ -174,7 +211,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
             jibun = res[0]?.address?.address_name || "";
           }
 
-          // 부모에 알림: mission 없이 store만 전달
+          // 부모로 알림
           onMissionSelectRef.current?.({
             mission: null,
             store: s,
@@ -193,18 +230,21 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
       const pos = new kakao.maps.LatLng(lat, lng);
+
+      // ✅ joinable 미션이 있는 매장은 빨간 마커
+      const isHot = hotStoreIds.has(Number(s.id));
       const marker = new kakao.maps.Marker({
         position: pos,
         map,
-        // 매장 타이틀: storeName 키 우선
         title: s.storeName || s.name || `매장#${s.id}`,
-        zIndex: 2,
+        zIndex: isHot ? 3 : 2,
+        ...(isHot ? { image: redImg } : {}), // 빨간 핀 적용
       });
 
       attachClick(marker, s);
       storeMarkersRef.current.push(marker);
     }
-  }, [stores]);
+  }, [stores, hotStoreIds]);
 
   // 4-A) /map?storeId=... → 해당 위치로 이동 (강조 마커는 자동 숨김)
   useEffect(() => {
@@ -242,7 +282,6 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
       }
     })();
 
-    // storeIdToFocus가 바뀌면 기존 타이머 정리
     return () => {
       if (focusHideTimerRef.current) {
         clearTimeout(focusHideTimerRef.current);
@@ -257,7 +296,6 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     const map = mapRef.current;
     if (!kakao || !map || !focus) return;
 
-    // 외부 포커스가 오면 강조 마커는 숨김
     hideFocusMarker();
 
     const lat = Number(focus.lat);
