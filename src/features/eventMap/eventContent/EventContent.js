@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
+// src/features/eventMap/eventContent/EventContent.js
+import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation, useOutletContext } from "react-router-dom";
 import api from "../../../api";
 import "./EventContent.css";
@@ -9,18 +10,13 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
   const outletCtx = useOutletContext();
   const authUser = outletCtx?.user || null;
 
-  // 모달/리뷰 상태
+  // ── 모달 & 리뷰 상태 (가게 전체 리뷰 전용)
   const [modalOpen, setModalOpen] = useState(false);
-  const [missions, setMissions] = useState([]);
-  const [missionsLoading, setMissionsLoading] = useState(false);
-  const [missionsErr, setMissionsErr] = useState("");
-  const [selectedMissionId, setSelectedMissionId] = useState(null);
-
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsErr, setReviewsErr] = useState("");
 
-  // 파생값 (selected 없어도 안전)
+  // ── 파생값 (selected 없어도 안전)
   const mission = selected?.mission || selected || {};
   const store = mission?.store || selected?.store || {};
 
@@ -28,7 +24,7 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
     mission.imgUrl ||
     mission.posterUrl ||
     mission.poster ||
-    mission.iamegUrl ||
+    mission.imageUrl ||
     mission.thumbnailUrl ||
     "";
 
@@ -85,7 +81,7 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
       alert("미션 ID가 없어 리뷰 페이지로 이동할 수 없습니다.");
       return;
     }
-    const reviewPath = `/itda/review?missionId=${encodeURIComponent(missionId)}`;
+    const reviewPath = `/review?missionId=${encodeURIComponent(missionId)}`;
     if (!authUser) {
       navigate(`${loginRoute}?next=${encodeURIComponent(reviewPath)}`);
       return;
@@ -109,108 +105,46 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
     setModalOpen(true);
   };
 
-  const normalizeMission = (m) => {
-    const mid = m.id ?? m.missionId ?? m.missionID ?? null;
-    const mTitle = m.title || "미션";
-    const mStart = m.startAt || m.startDate || null;
-    const mEnd = m.endAt || m.endDate || null;
-    return {
-      id: mid,
-      title: mTitle,
-      label: `${mTitle}${mStart || mEnd ? ` (${fmtDate(mStart)} ~ ${fmtDate(mEnd)})` : ""}`,
-      start: mStart,
-      end: mEnd,
-    };
-  };
-
-  useEffect(() => {
-    if (!modalOpen || !storeId) return;
-    let alive = true;
-    (async () => {
-      setMissionsLoading(true);
-      setMissionsErr("");
-      setMissions([]);
-      setSelectedMissionId(null);
-      try {
-        let list = [];
-        try {
-          const { data } = await api.get("/itda/missions", { params: { storeId } });
-          list = Array.isArray(data) ? data : data?.items || [];
-        } catch {
-          try {
-            const { data } = await api.get(`/itda/stores/${storeId}/missions`);
-            list = Array.isArray(data) ? data : data?.items || [];
-          } catch {
-            const { data } = await api.get("/itda/missions/joinable");
-            const all = Array.isArray(data) ? data : data?.items || [];
-            list = all.filter((m) => {
-              const sid = m.storeId ?? m.store?.id ?? m.store?.storeId;
-              return String(sid) === String(storeId);
-            });
-          }
-        }
-        const normalized = list.map(normalizeMission);
-        if (!alive) return;
-        setMissions(normalized);
-        const foundSame = normalized.find((m) => String(m.id) === String(missionId));
-        setSelectedMissionId(foundSame?.id ?? normalized[0]?.id ?? null);
-      } catch (e) {
-        if (!alive) return;
-        setMissions([]);
-        setMissionsErr(e?.response?.data?.message || "미션 목록을 불러오지 못했습니다.");
-      } finally {
-        if (alive) setMissionsLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [modalOpen, storeId, missionId]);
-
   const normalizeReview = (r) => {
     const userName =
       r.userName || r.username || r.nickname || r.user?.name || "사용자";
     const ratingRaw = r.rating ?? r.stars ?? 0;
-    const rating = typeof ratingRaw === "number" ? ratingRaw : Number(ratingRaw) || 0;
+    const rating =
+      typeof ratingRaw === "number" ? ratingRaw : Number(ratingRaw) || 0;
     const text = r.text ?? r.content ?? "";
-    const id = r.id ?? r.reviewId ?? r._id ?? Math.random().toString(36).slice(2);
+    const id =
+      r.id ?? r.reviewId ?? r._id ?? Math.random().toString(36).slice(2);
     return { id, userName, rating, text };
   };
 
-  const fetchReviews = useCallback(async () => {
-    if (!selectedMissionId) {
-      setReviews([]);
-      return;
-    }
-    setReviewsLoading(true);
-    setReviewsErr("");
-    const tryCalls = [
-      async () =>
-        api
-          .get("/itda/reviews", {
-            params: { missionId: selectedMissionId, status: "APPROVED" },
-          })
-          .then(({ data }) => (Array.isArray(data) ? data : data?.items || data?.content || [])),
-      async () =>
-        api
-          .get(`/itda/missions/${selectedMissionId}/reviews`, {
-            params: { status: "APPROVED" },
-          })
-          .then(({ data }) => (Array.isArray(data) ? data : data?.items || data?.content || [])),
-    ];
-    let rows = [];
-    for (const call of tryCalls) {
-      try {
-        rows = await call();
-        if (rows && rows.length >= 0) break;
-      } catch {}
-    }
-    setReviews(rows.map(normalizeReview));
-    setReviewsLoading(false);
-  }, [selectedMissionId]);
-
+  // 🔎 모달 오픈 시, 가게 전체 리뷰 로드 (/itda/reviews?storeId=...)
   useEffect(() => {
-    if (!modalOpen) return;
-    fetchReviews();
-  }, [modalOpen, selectedMissionId, fetchReviews]);
+    if (!modalOpen || !storeId) return;
+    let alive = true;
+    (async () => {
+      setReviewsLoading(true);
+      setReviewsErr("");
+      try {
+        const { data } = await api.get("/itda/reviews", { params: { storeId } });
+        const rows = Array.isArray(data)
+          ? data
+          : data?.items || data?.content || [];
+        if (!alive) return;
+        setReviews(rows.map(normalizeReview));
+      } catch (e) {
+        if (!alive) return;
+        setReviews([]);
+        setReviewsErr(
+          e?.response?.data?.message || "리뷰를 불러오지 못했습니다."
+        );
+      } finally {
+        if (alive) setReviewsLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [modalOpen, storeId]);
 
   const hasMission = !!missionId;
 
@@ -266,12 +200,14 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
 
         <div className="row">
           <span className="label">보상 내용</span>
-          <span className="value">{hasMission ? (rewardContent || "-") : "-"}</span>
+          <span className="value">
+            {hasMission ? rewardContent || "-" : "-"}
+          </span>
         </div>
 
         <div className="row">
           <span className="label">보상 수량</span>
-          <span className="value">{hasMission ? (reward ?? "-") : "-"}</span>
+          <span className="value">{hasMission ? reward ?? "-" : "-"}</span>
         </div>
 
         <div className="row">
@@ -304,55 +240,34 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
             className="event-btn primary"
             onClick={goToReview}
             disabled={!missionId}
-            title={missionId ? "이 미션에 대한 리뷰 작성" : "미션 ID가 없어 이동할 수 없습니다"}
+            title={
+              missionId
+                ? "이 미션에 대한 리뷰 작성"
+                : "미션 ID가 없어 이동할 수 없습니다"
+            }
           >
             리뷰 작성
           </button>
         </div>
       </div>
 
-      {/* 리뷰 모달 */}
+      {/* 리뷰 모달 (가게 전체 리뷰) */}
       {modalOpen && (
         <div
           className="rv-modal-backdrop"
           onClick={() => setModalOpen(false)}
         >
-          <div
-            className="rv-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="rv-modal" onClick={(e) => e.stopPropagation()}>
             {/* 헤더 */}
             <div className="rv-modal-head">
               <strong>매장 리뷰 보기</strong>
-              <button type="button" onClick={() => setModalOpen(false)} className="event-btn ghost">
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="event-btn ghost"
+              >
                 닫기
               </button>
-            </div>
-
-            {/* 셀렉터 (sticky) */}
-            <div className="rv-modal-controls">
-              <div style={{ fontWeight: 600 }}>{storeName}</div>
-              <div style={{ marginLeft: "auto" }}>
-                {missionsLoading ? (
-                  <span style={{ color: "#666" }}>미션 목록 불러오는 중…</span>
-                ) : missionsErr ? (
-                  <span style={{ color: "#c00" }}>{missionsErr}</span>
-                ) : missions.length === 0 ? (
-                  <span style={{ color: "#666" }}>등록된 미션이 없습니다.</span>
-                ) : (
-                  <select
-                    className="event-input"
-                    value={selectedMissionId || ""}
-                    onChange={(e) => setSelectedMissionId(e.target.value || null)}
-                  >
-                    {missions.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
             </div>
 
             {/* 본문 (스크롤, 5개 정도 보이는 높이) */}
@@ -361,8 +276,6 @@ export default function EventContent({ selected, loginRoute = "/login" }) {
                 <div style={{ color: "#666" }}>리뷰 불러오는 중…</div>
               ) : reviewsErr ? (
                 <div style={{ color: "#c00" }}>{reviewsErr}</div>
-              ) : !selectedMissionId ? (
-                <div style={{ color: "#666" }}>미션을 선택하세요.</div>
               ) : reviews.length === 0 ? (
                 <div style={{ color: "#666" }}>표시할 리뷰가 없습니다.</div>
               ) : (

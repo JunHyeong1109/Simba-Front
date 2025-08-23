@@ -101,6 +101,7 @@
   margin-bottom: 8px;
   word-break: break-word;
   overflow-wrap: anywhere;
+  white-space: pre-wrap; /* 줄바꿈 보존 */
 }
 
 /* 여러 장 출력 레이아웃 */
@@ -162,22 +163,27 @@
   border-radius: 4px;
 }
 
-/* 텍스트 입력 & 파일 */
-.review-input {
+/* 텍스트 입력 → textarea (엔터 줄바꿈, 마우스 리사이즈 금지) */
+.review-textarea {
   width: 100%;
+  min-height: 120px;
   padding: 10px 12px;
   margin: 6px 0 10px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   font-size: 14px;
+  line-height: 1.6;
   box-sizing: border-box;
+  resize: none;              /* 크기 조절 금지 */
+  white-space: pre-wrap;     /* 줄바꿈 보존 */
 }
-.review-input:focus {
+.review-textarea:focus {
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, .15);
   outline: none;
 }
 
+/* 파일 업로드 줄 */
 .review-file-row {
   display: flex;
   align-items: center;
@@ -227,6 +233,7 @@
 .review-file:disabled::file-selector-button,
 .review-file:disabled::-webkit-file-upload-button { cursor: not-allowed; }
 
+/* 미리보기/삭제 버튼 */
 .preview-btn {
   background: #4e6cff;
   color: #fff;
@@ -274,6 +281,11 @@
   display: grid;
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
+}
+/* 축소 버전 (컴포넌트에서 .small 클래스 함께 사용) */
+.gallery-sheet.small {
+  width: min(720px, 92vw);
+  max-height: 70vh;
 }
 
 /* 헤더 */
@@ -331,12 +343,18 @@
 }
 .gallery-image {
   max-width: 92%;
-  max-height: 56vh;           /* 5장 미리보기 요구는 리뷰모달이었고, 여기선 한 장 크게 */
+  max-height: 56vh;
   object-fit: contain;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   background: #fff;
 }
+/* 축소 이미지 */
+.gallery-image.small {
+  max-width: 88%;
+  max-height: 48vh;
+}
+
 .gallery-nav {
   position: absolute;
   top: 50%;
@@ -379,3 +397,20 @@
   cursor: pointer;
 }
 .delete-btn:hover { background: #dc2626; }
+
+/* 반응형 살짝 보정 */
+@media (max-width: 520px) {
+  .review-images-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+  .gallery-sheet.small {
+    width: 96vw;
+    max-height: 68vh;
+  }
+  .gallery-image.small {
+    max-height: 44vh;
+  }
+  .review-textarea {
+    min-height: 100px;
+  }
+}

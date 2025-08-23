@@ -227,3 +227,43 @@
   white-space: nowrap !important;
   border: 0 !important;
 }
+
+/* ====== 한 줄 표시 + 말줄임(…) ====== */
+
+/* grid 아이템 내부에서 말줄임이 작동하도록 최소폭 0 */
+.info-col { min-width: 0; }
+
+/* 레이블은 줄바꿈 금지 */
+.row .label {
+  white-space: nowrap;
+}
+
+/* 값은 한 줄 + 넘치면 말줄임 */
+.row .value {
+  min-width: 0;             /* 중요: grid 안에서 말줄임 허용 */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 제목도 한 줄로 고정 + 말줄임 */
+.info-col .title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 우상단 떠있는 버튼 영역이 내용 겹치지 않도록 여백 확보 */
+.event-detail { position: relative; }
+.event-floating-actions {
+  position: absolute;
+  right: 0;
+  top: 0;
+  padding: 8px;
+}
+
+/* 모바일 단일열일 때도 ‘기간/주소/보상내용’은 한 줄 유지 */
+@media (max-width: 900px) {
+  .row { grid-template-columns: 90px 1fr; }
+  .row .value { max-width: 100%; }
+}

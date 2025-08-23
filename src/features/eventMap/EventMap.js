@@ -2,49 +2,41 @@
 import { useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import KaKaoMap from "./map/KaKaoMap";
-import EventList from "./eventList/EventList";   // ✅ 리스트 복원
+import EventList from "./eventList/EventList";
 import EventContent from "./eventContent/EventContent";
 import "./EventMap.css";
 
 export default function EventMap() {
-  const [selected, setSelected] = useState(null); // { mission|null, lat, lng, address?, store? }
+  // { mission|null, lat, lng, address?, store? }
+  const [selected, setSelected] = useState(null);
 
-  // /map?storeId=123 → 해당 매장 위치로 지도 포커스
   const [params] = useSearchParams();
   const storeIdParam = params.get("storeId");
   const storeIdToFocus = storeIdParam ? Number(storeIdParam) : null;
 
-  // 지도 마커 클릭 → 상세 패널/리스트 연동
+  // 지도/리스트에서 “선택”이 발생하면 공통으로 여기로 모음
   const handleMissionSelect = useCallback((payload) => {
-    // payload: { mission|null, lat, lng, address?, store? }
     setSelected(payload);
   }, []);
 
-  // 좌측 리스트에 넘길 매장 id (선택된 매장 기준)
-  const selectedStoreId =
+  // 현재 선택된 매장 id 추출 (지도에서 넘겨준 payload에 들어있음)
+  const currentStoreId =
     selected?.store?.id ??
-    selected?.storeId ??
-    selected?.mission?.storeId ??
+    selected?.store?.storeId ??
     selected?.mission?.store?.id ??
+    selected?.mission?.storeId ??
     null;
 
   return (
     <div className="event-page-80">
-      <div className="map-list-layout">{/* ✅ 두 칼럼 레이아웃로 복귀 */}
-        {/* 왼쪽: 미션 리스트 */}
+      <div className="map-list-layout">
+        {/* 왼쪽: 선택 매장 정보 & 진행 중 미션 목록 */}
         <div className="list-col">
           <EventList
-            // 선택된 매장이 있으면 그 매장의 미션만 보여줌
-            storeId={selectedStoreId || undefined}
-            // 기본 동작은 joinable (EventList 내부 로직 유지)
-            onSelect={({ mission, lat, lng }) =>
-              setSelected({
-                mission,
-                lat,
-                lng,
-                store: mission?.store, // 상세 패널 연동용
-              })
-            }
+            storeId={currentStoreId}
+            address={selected?.address}
+            // ✅ 리스트에서 미션을 고르면 상세/지도 동기화
+            onPickMission={handleMissionSelect}
           />
         </div>
 
@@ -52,13 +44,13 @@ export default function EventMap() {
         <div className="map-col">
           <KaKaoMap
             storeIdToFocus={storeIdToFocus}
-            focus={selected}                 // 리스트/마커 선택 시 좌표 이동
-            onMissionSelect={handleMissionSelect} // 마커 클릭 → 좌측/하단 갱신
+            focus={selected}                 // 리스트/지도 선택 → 지도 중심 이동
+            onMissionSelect={handleMissionSelect} // 지도에서 선택 → 하단 상세/리스트 동기화
           />
         </div>
       </div>
 
-      {/* 하단: 상세 패널 */}
+      {/* 하단 상세 패널 */}
       <EventContent selected={selected} />
     </div>
   );

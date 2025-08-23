@@ -6,12 +6,10 @@ import "./MainPage.css";
 
 const MAP_ROUTE = "/map";
 const MANAGE_ROUTE = "/manage";
-
 const PREVIEW_LIMIT = 8;
 
 export default function MainPage() {
   const navigate = useNavigate();
-
   const outletCtx = useOutletContext();
   const user = outletCtx?.user ?? null;
 
@@ -58,7 +56,13 @@ export default function MainPage() {
           if (!sid) continue;
 
           const poster =
-            m.posterUrl || m.poster || m.imageUrl || m.thumbnailUrl || "";
+            m.imgUrl ||
+            m.posterUrl ||
+            m.poster ||
+            m.imageUrl ||
+            m.thumbnailUrl ||
+            m.iamegUrl || 
+            "";
 
           if (!byStore.has(sid)) {
             byStore.set(sid, {
@@ -122,7 +126,7 @@ export default function MainPage() {
         </button>
       </div>
 
-      {/* 하단: 미션이 올라온 매장 미리보기(유지) */}
+      {/* 하단: 미션이 올라온 매장 미리보기 */}
       <div className="main-sections vertical">
         <section className="home-section">
           <div className="section-header">

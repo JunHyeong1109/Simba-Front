@@ -1,19 +1,25 @@
 // src/pages/ReviewPage.jsx
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../../api";
 import "./Review.css";
 
 export default function ReviewPage() {
+  // ───────────────── 파라미터(필수: missionId)
+  const [params] = useSearchParams();
+  const missionId = params.get("missionId");
+
   // ───────────────── 사용자
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
-  const isReviewer = (user?.role || "").toString().toUpperCase() === "REVIEWER";
+  const roleUp = (user?.role || "").toString().toUpperCase();
+  const isReviewer = roleUp === "REVIEWER" || roleUp === "USER";
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const { data } = await api.get("/itda/me");
+        const { data } = await api.get("/itda/me", { withCredentials: true });
         if (alive) setUser(data || null);
       } catch {
         if (alive) setUser(null);
@@ -24,9 +30,72 @@ export default function ReviewPage() {
     return () => { alive = false; };
   }, []);
 
-  // ───────────────── 리뷰 목록(로컬 데모)
+  // ───────────────── 서버 리뷰 목록
   const [reviews, setReviews] = useState([]);
-  const [sortBy, setSortBy] = useState("latest"); // latest | rating
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewsErr, setReviewsErr] = useState("");
+
+  const normalizeReview = (r) => {
+    const name =
+      r.userName || r.username || r.nickname || r.user?.name || "사용자";
+    const rawRating = r.rating ?? r.stars ?? 0;
+    const rating = typeof rawRating === "number" ? rawRating : Number(rawRating) || 0;
+    const text = r.text ?? r.content ?? "";
+    const ts = r.createdAt || r.updatedAt || r.created_at || r.ts || Date.now();
+    const images =
+      r.images ||
+      r.imageUrls ||
+      (r.imageUrl ? [r.imageUrl] : []) ||
+      [];
+    return {
+      id: r.id ?? r.reviewId ?? r._id ?? Math.random().toString(36).slice(2),
+      ts: new Date(ts).valueOf() || Date.now(),
+      name,
+      text,
+      rating,
+      date: formatKSTDate(new Date(ts)),
+      images: Array.isArray(images) ? images : [],
+    };
+  };
+
+  const fetchReviews = useCallback(async () => {
+    if (!missionId) {
+      setReviews([]);
+      return;
+    }
+    setLoadingReviews(true);
+    setReviewsErr("");
+    let rows = [];
+    const tryCalls = [
+      async () =>
+        api
+          .get(`/itda/missions/${missionId}/reviews`, { withCredentials: true })
+          .then(({ data }) => (Array.isArray(data) ? data : data?.items || data?.content || [])),
+      async () =>
+        api
+          .get(`/itda/reviews`, { params: { missionId }, withCredentials: true })
+          .then(({ data }) => (Array.isArray(data) ? data : data?.items || data?.content || [])),
+    ];
+    for (const call of tryCalls) {
+      try {
+        rows = await call();
+        break;
+      } catch (e) {
+        // try next
+      }
+    }
+    try {
+      setReviews(rows.map(normalizeReview));
+    } catch {
+      setReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
+  }, [missionId]);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
 
   // ───────────────── 작성 상태
   const [text, setText] = useState("");
@@ -77,8 +146,7 @@ export default function ReviewPage() {
     }));
 
     setImages((prev) => [...prev, ...next]);
-    // input value 초기화(같은 파일 다시 선택 가능하게)
-    e.target.value = "";
+    e.target.value = ""; // 같은 파일 다시 선택 가능하도록 초기화
   };
 
   // 이미지 전체 URL 정리 (언마운트 시)
@@ -96,7 +164,7 @@ export default function ReviewPage() {
     setGalleryOpen(true);
   };
 
-  // 갤러리 닫기 (오직 X 버튼으로만 닫음. 오버레이 클릭/ESC 미사용)
+  // 갤러리 닫기 (오직 X 버튼으로만 닫음)
   const closeGallery = () => setGalleryOpen(false);
 
   // 갤러리 탐색
@@ -123,36 +191,47 @@ export default function ReviewPage() {
       setGalleryOpen(false);
       return;
     }
-    // 인덱스 보정
     setGalleryIndex((i) => (idx >= newArr.length ? newArr.length - 1 : idx));
   };
 
-  // 리뷰 등록 (데모: 로컬에만 추가)
-  const handleAddReview = () => {
+  // 리뷰 등록 (서버 전송)
+  const handleAddReview = async () => {
+    if (!missionId) {
+      alert("잘못된 접근입니다. (missionId 없음)");
+      return;
+    }
     if (!isReviewer) return;
     if (!text.trim() || rating === 0) return;
 
-    const now = Date.now();
-    const newReview = {
-      id: now,
-      ts: now,
-      name: user?.nickname || user?.username || user?.name || "사용자",
-      text: text.trim(),
-      rating,
-      date: formatKSTDate(new Date(now)),
-      images: images.map((img) => img.previewUrl), // 실제 서버 저장 시 업로드 후 URL 교체
-    };
+    try {
+      const form = new FormData();
+      form.append("text", text.trim());
+      form.append("rating", String(rating));
+      // 이미지 여러 장: 같은 필드명으로 반복 append
+      images.forEach((img) => {
+        if (img.file) form.append("images", img.file, img.file.name);
+      });
 
-    setReviews((prev) => [newReview, ...prev]);
-    // 초기화
-    setText("");
-    setRating(0);
-    // 이미지 URL 정리 후 비우기
-    images.forEach((img) => img.previewUrl && URL.revokeObjectURL(img.previewUrl));
-    setImages([]);
+      await api.post(`/itda/missions/${encodeURIComponent(missionId)}/reviews`, form, {
+        withCredentials: true, // 세션 쿠키 필요 시
+        // Content-Type은 axios가 자동으로 multipart/form-data + boundary 지정
+      });
+
+      // 성공 → 리스트 재조회 & 입력 초기화
+      await fetchReviews();
+      setText("");
+      setRating(0);
+      images.forEach((img) => img.previewUrl && URL.revokeObjectURL(img.previewUrl));
+      setImages([]);
+      alert("리뷰가 등록되었습니다.");
+    } catch (e) {
+      const msg = e?.response?.data?.message || e?.message || "리뷰 등록 중 오류가 발생했습니다.";
+      alert(msg);
+    }
   };
 
   // 정렬 파생값
+  const [sortBy, setSortBy] = useState("latest"); // latest | rating
   const sortedReviews = useMemo(() => {
     const list = [...reviews];
     if (sortBy === "rating") {
@@ -166,7 +245,6 @@ export default function ReviewPage() {
     return list;
   }, [reviews, sortBy]);
 
-  // 이미지 수 라벨
   const filesCountLabel = images.length ? `${images.length}개 선택됨` : "선택된 이미지 없음";
 
   return (
@@ -191,7 +269,11 @@ export default function ReviewPage() {
 
       {/* 리뷰 목록 */}
       <div className="review-list">
-        {sortedReviews.length === 0 ? (
+        {loadingReviews ? (
+          <p className="review-empty">불러오는 중…</p>
+        ) : reviewsErr ? (
+          <p className="review-empty">{reviewsErr}</p>
+        ) : sortedReviews.length === 0 ? (
           <p className="review-empty">아직 리뷰가 없습니다.</p>
         ) : (
           sortedReviews.map((review) => (
@@ -203,8 +285,8 @@ export default function ReviewPage() {
                   <span className="review-date">{review.date}</span>
                 </div>
                 <div className="review-stars readonly" aria-label={`별점 ${review.rating}점`}>
-                  {"★".repeat(review.rating)}
-                  {"☆".repeat(5 - review.rating)}
+                  {"★".repeat(Math.max(0, review.rating))}
+                  {"☆".repeat(Math.max(0, 5 - review.rating))}
                 </div>
                 <div className="review-text">{review.text}</div>
 
@@ -228,9 +310,11 @@ export default function ReviewPage() {
       </div>
 
       {/* 입력 영역 */}
-      <div className={`review-input-container ${!isReviewer ? "disabled" : ""}`}>
+      <div className={`review-input-container ${!isReviewer || !missionId ? "disabled" : ""}`}>
         {loadingUser ? (
           <div className="review-guard">사용자 정보를 불러오는 중…</div>
+        ) : !missionId ? (
+          <div className="review-guard">잘못된 접근입니다. (missionId가 없습니다)</div>
         ) : !isReviewer ? (
           <div className="review-guard">리뷰어만 리뷰를 작성할 수 있습니다.</div>
         ) : null}
@@ -251,15 +335,14 @@ export default function ReviewPage() {
           ))}
         </div>
 
-        {/* 텍스트 입력 */}
-        <input
-          type="text"
+        {/* 텍스트 입력 → textarea로 변경(엔터로 줄바꿈, 마우스 리사이즈 불가) */}
+        <textarea
           placeholder="리뷰를 작성해주세요"
-          className="review-input"
+          className="review-textarea"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleAddReview()}
-          disabled={!isReviewer}
+          disabled={!isReviewer || !missionId}
+          rows={5}
         />
 
         {/* 파일 업로드 + 미리보기/삭제 */}
@@ -270,7 +353,7 @@ export default function ReviewPage() {
             multiple
             onChange={handleImageChange}
             className="review-file"
-            disabled={!isReviewer || images.length >= 10}
+            disabled={!isReviewer || !missionId || images.length >= 10}
             title="최대 10장까지 선택 가능"
           />
           <button
@@ -292,15 +375,15 @@ export default function ReviewPage() {
           <span className="file-name" aria-live="polite">{filesCountLabel}</span>
         </div>
 
-        <button onClick={handleAddReview} className="review-button" disabled={!isReviewer}>
+        <button onClick={handleAddReview} className="review-button" disabled={!isReviewer || !missionId}>
           등록
         </button>
       </div>
 
-      {/* 하단 갤러리 모달 (X로만 닫힘) */}
+      {/* 하단 갤러리 모달 (X로만 닫힘) — 사이즈 축소 */}
       {galleryOpen && images.length > 0 && (
         <div className="gallery-overlay" aria-modal="true" role="dialog">
-          <div className="gallery-sheet" role="document">
+          <div className="gallery-sheet small" role="document">
             <div className="gallery-header">
               <span className="gallery-title">
                 {galleryMode === "delete" ? "이미지 삭제" : "이미지 미리보기"}
@@ -326,7 +409,7 @@ export default function ReviewPage() {
               <img
                 src={images[galleryIndex]?.previewUrl}
                 alt={`선택 이미지 ${galleryIndex + 1}/${images.length}`}
-                className="gallery-image"
+                className="gallery-image small"
               />
 
               <button

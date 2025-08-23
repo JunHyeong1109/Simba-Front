@@ -103,20 +103,34 @@
 }
 
 .store-mission-item {
+  cursor: pointer;
+  user-select: none;
+  padding: 10px 12px;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  padding: 10px;
   background: #fff;
-  display: grid;
-  gap: 4px;
+  transition: background-color .12s ease, border-color .12s ease, transform .06s ease;
 }
 
+.store-mission-item:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+.store-mission-item:active {
+  transform: translateY(1px);
+}
 .store-mission-title {
   font-weight: 600;
   color: #111827;
 }
 
 .store-mission-dates {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.store-review-quick {
+  margin: 6px 0 4px;
   font-size: 13px;
   color: #6b7280;
 }
