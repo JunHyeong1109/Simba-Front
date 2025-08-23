@@ -10,7 +10,8 @@ const KAKAO_APP_KEY = "261b88294b81d5800071641ecc633dcb";
 
 export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
   const [stores, setStores] = useState([]);
-  const [hotStoreIds, setHotStoreIds] = useState(new Set()); // ✅ 진행 가능한 미션 매장
+  const [hotStoreIds, setHotStoreIds] = useState(new Set()); // 진행 가능한 미션 매장
+  const [mapReady, setMapReady] = useState(false); // ✅ 지도 초기화 완료 신호
 
   const mapRef = useRef(null);
   const geocoderRef = useRef(null);
@@ -59,8 +60,10 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
           level: 3,
         });
         mapRef.current = map;
-
         geocoderRef.current = new kakao.maps.services.Geocoder();
+
+        // ✅ 지도 준비 완료 플래그
+        setMapReady(true);
 
         const searchAddrFromCoords = (coords, cb) => {
           geocoderRef.current?.coord2RegionCode(
@@ -110,6 +113,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
       hideFocusMarker();
       mapRef.current = null;
       geocoderRef.current = null;
+      setMapReady(false); // ✅ 언마운트 시 플래그 해제
     };
   }, []);
 
@@ -177,7 +181,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     storeMarkersRef.current.forEach((m) => m.setMap(null));
     storeMarkersRef.current = [];
 
-    // ✅ 마커 이미지 준비 (빨간 핀)
+    // 마커 이미지(빨간 핀)
     const redPinSVG =
       'data:image/svg+xml;utf8,' +
       encodeURIComponent(
@@ -231,14 +235,14 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
 
       const pos = new kakao.maps.LatLng(lat, lng);
 
-      // ✅ joinable 미션이 있는 매장은 빨간 마커
+      // joinable 미션이 있는 매장은 빨간 마커
       const isHot = hotStoreIds.has(Number(s.id));
       const marker = new kakao.maps.Marker({
         position: pos,
         map,
         title: s.storeName || s.name || `매장#${s.id}`,
         zIndex: isHot ? 3 : 2,
-        ...(isHot ? { image: redImg } : {}), // 빨간 핀 적용
+        ...(isHot ? { image: redImg } : {}),
       });
 
       attachClick(marker, s);
@@ -288,7 +292,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
         focusHideTimerRef.current = null;
       }
     };
-  }, [storeIdToFocus]);
+  }, [storeIdToFocus, mapReady]); // ✅ mapReady 추가로 초기화 후에도 재실행됨
 
   // 4-B) 리스트/상세에서 좌표 전달 시 → 강조 마커 즉시 숨김 + 지도 이동
   useEffect(() => {

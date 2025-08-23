@@ -125,7 +125,7 @@
   width: min(720px, 92vw);
   max-height: 84vh;
   display: grid;
-  grid-template-rows: auto auto 1fr; /* 헤더 / 컨트롤 / 본문 */
+  grid-template-rows: auto 1fr; /* 헤더 / 본문 */
   box-shadow: 0 12px 36px rgba(0,0,0,.2);
   overflow: hidden;
 }
@@ -138,21 +138,7 @@
   justify-content: space-between;
   align-items: center;
   position: sticky;
-  top: 0;            /* 바닥 스크롤 시에도 고정 */
-  background: #fff;
-  z-index: 2;
-}
-
-/* 미션 선택 컨트롤 - 스티키 (헤더 아래 고정) */
-.rv-modal-controls {
-  padding: 12px 16px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  border-bottom: 1px solid #f2f2f2;
-  flex-wrap: wrap;
-  position: sticky;
-  top: 52px;         /* 헤더 높이만큼 오프셋 */
+  top: 0;
   background: #fff;
   z-index: 2;
 }
@@ -161,7 +147,7 @@
 .rv-modal-body {
   padding: 16px;
   overflow-y: auto;
-  height: min(60vh, 480px);   /* ≈ 5개 카드가 보이는 높이 */
+  height: min(60vh, 480px);
   min-height: 360px;
 }
 
@@ -195,37 +181,156 @@
   letter-spacing: 1px;
 }
 
-/* 멀티라인 말줄임 유틸 (3줄) */
-.clamp-3,
-.rv-review-text {
+/* ========= 텍스트 펼침/접힘 ========= */
+
+/* 말줄임 유틸 (선택적으로 사용) */
+.clamp-3 {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
-
-  /* 벤더 프리픽스 */
   -webkit-line-clamp: 3;
-
-  /* ✅ 표준 속성도 함께 정의 (경고 제거용) */
   line-clamp: 3;
 }
 
-.rv-review-text {
+/* 텍스트/버튼을 묶는 랩퍼 */
+.rv-review-text-wrap {
+  position: relative;
   margin-top: 8px;
-  white-space: pre-wrap;
-  color: #374151;
 }
 
-/* 스크린리더 전용 */
-.sr-only {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  margin: -1px !important;
-  overflow: hidden !important;
-  clip: rect(0 0 0 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
+/* 리뷰 텍스트 본문: 기본은 전체 스타일, 접힘일 때만 .clamp-3로 제한됨 */
+.rv-review-text {
+  white-space: pre-wrap;   /* 줄바꿈 보존 + 자동 줄바꿈 */
+  word-break: break-word;  /* 긴 단어/URL도 줄바꿈 */
+  color: #374151;
+  margin: 0;               /* p 기본 마진 리셋 */
+}
+
+/* 접힘 상태에서 하단 페이드(시각적 힌트) */
+.rv-review-text-wrap.collapsed .rv-fade-tail {
+  position: absolute;
+  left: 0; right: 0;
+  /* 버튼과 겹치지 않도록 버튼 높이만큼 위로 */
+  bottom: 2.2rem;
+  height: 2.6rem;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), #fff 70%);
+  pointer-events: none;
+}
+
+/* 자세히 보기/접기 버튼 */
+.rv-more-btn {
+  margin-top: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+}
+.rv-more-btn:hover { background: #f8fafc; }
+
+/* ========= 이미지 썸네일 그리드 ========= */
+.rv-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rv-image {
+  width: 100%;
+  height: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  cursor: zoom-in;
+}
+
+/* ========= 라이트박스(큰 이미지) ========= */
+.rv-review-card.rv-clickable { cursor: zoom-in; }
+
+.rv-viewer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  display: grid;
+  place-items: center;
+  z-index: 1200;
+}
+
+.rv-viewer {
+  position: relative;
+  max-width: min(92vw, 960px);
+  max-height: 86vh;
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.rv-viewer-img {
+  max-width: 92%;
+  max-height: 76vh;
+  object-fit: contain;
+  background: #111;
+}
+
+/* 닫기 버튼 (우상단 X) */
+.rv-viewer-close {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 32px; height: 32px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+}
+.rv-viewer-close::before,
+.rv-viewer-close::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 14px; height: 2px;
+  background: #111827;
+  border-radius: 2px;
+  transform-origin: center;
+}
+.rv-viewer-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+.rv-viewer-close::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+.rv-viewer-close:hover { background: #f8fafc; }
+
+.rv-viewer-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 36px; min-height: 36px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255,255,255,.15);
+  color: #fff;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+.rv-viewer-nav.left { left: 10px; }
+.rv-viewer-nav.right { right: 10px; }
+rv-viewer-nav:hover { background: rgba(255,255,255,.25); }
+
+.rv-viewer-count {
+  position: absolute;
+  bottom: 8px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
 }
 
 /* ====== 한 줄 표시 + 말줄임(…) ====== */
@@ -234,13 +339,11 @@
 .info-col { min-width: 0; }
 
 /* 레이블은 줄바꿈 금지 */
-.row .label {
-  white-space: nowrap;
-}
+.row .label { white-space: nowrap; }
 
 /* 값은 한 줄 + 넘치면 말줄임 */
 .row .value {
-  min-width: 0;             /* 중요: grid 안에서 말줄임 허용 */
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -267,77 +370,3 @@
   .row { grid-template-columns: 90px 1fr; }
   .row .value { max-width: 100%; }
 }
-
-/* ========= (추가) 리뷰 이미지 썸네일 그리드 ========= */
-.rv-images-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.rv-image {
-  width: 100%;
-  height: 100%;
-  max-height: 160px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  cursor: zoom-in;
-}
-
-/* ========= (추가) 라이트박스(큰 이미지) ========= */
-.rv-viewer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.5);
-  display: grid;
-  place-items: center;
-  z-index: 1100;
-}
-
-.rv-viewer {
-  position: relative;
-  max-width: min(92vw, 960px);
-  max-height: 86vh;
-  background: #000;
-  border-radius: 12px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-}
-
-.rv-viewer-img {
-  max-width: 100%;
-  max-height: 86vh;
-  object-fit: contain;
-  background: #000;
-}
-
-/* 닫기 버튼 (우상단 X) */
-.rv-viewer-close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0,0,0,.25);
-}
-.rv-viewer-close::before,
-.rv-viewer-close::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 14px;
-  height: 2px;
-  background: #111827;
-  transform-origin: center;
-}
-.rv-viewer-close::before { transform: translate(-50%, -50%) rotate(45deg); }
-.rv-viewer-close::after  { transform: translate(-50%, -50%) rotate(-45deg); }
-.rv-viewer-close:hover { background: #f8fafc; }

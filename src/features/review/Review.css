@@ -302,3 +302,13 @@
   cursor: pointer;
 }
 .delete-btn:hover { background: #dc2626; }
+
+.review-length-helper {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;   /* 기본은 회색 */
+  text-align: right;
+}
+.review-length-helper.error {
+  color: #dc2626;   /* 제한 초과 시 빨간색 */
+}

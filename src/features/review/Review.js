@@ -9,6 +9,9 @@ export default function ReviewPage() {
   const missionId = params.get("missionId");
   const navigate = useNavigate();
 
+  // ───────── constants
+  const MAX_REVIEW_LEN = 2000;
+
   // ───────── user
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -27,7 +30,9 @@ export default function ReviewPage() {
         if (alive) setLoadingUser(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // ───────── compose
@@ -56,9 +61,12 @@ export default function ReviewPage() {
     e.target.value = "";
   };
 
-  useEffect(() => () => {
-    images.forEach((img) => img.previewUrl && URL.revokeObjectURL(img.previewUrl));
-  }, [images]);
+  useEffect(
+    () => () => {
+      images.forEach((img) => img.previewUrl && URL.revokeObjectURL(img.previewUrl));
+    },
+    [images]
+  );
 
   const openGallery = (mode = "preview") => {
     if (!images.length) return;
@@ -67,8 +75,10 @@ export default function ReviewPage() {
     setGalleryOpen(true);
   };
   const closeGallery = () => setGalleryOpen(false);
-  const prevImage = () => images.length && setGalleryIndex((i) => (i - 1 + images.length) % images.length);
-  const nextImage = () => images.length && setGalleryIndex((i) => (i + 1) % images.length);
+  const prevImage = () =>
+    images.length && setGalleryIndex((i) => (i - 1 + images.length) % images.length);
+  const nextImage = () =>
+    images.length && setGalleryIndex((i) => (i + 1) % images.length);
   const deleteCurrentImage = () => {
     if (!images.length) return;
     const idx = galleryIndex;
@@ -80,7 +90,7 @@ export default function ReviewPage() {
     else setGalleryIndex(idx >= arr.length ? arr.length - 1 : idx);
   };
 
-  // ───────── submit (multipart/form-data + request(JSON) + image)
+  // ───────── submit (multipart/form-data + request(JSON) + image) — 견고하게
   const handleAddReview = async () => {
     if (!missionId) return alert("잘못된 접근입니다. (missionId 없음)");
     if (!isReviewer) return;
@@ -88,6 +98,10 @@ export default function ReviewPage() {
     const content = text.trim();
     if (content.length < 10) {
       alert("최소 10글자 이상 작성해야 합니다.");
+      return;
+    }
+    if (content.length > MAX_REVIEW_LEN) {
+      alert(`리뷰는 최대 ${MAX_REVIEW_LEN}자까지 작성할 수 있습니다. (현재 ${content.length}자)`);
       return;
     }
     if (rating === 0) {
@@ -98,18 +112,61 @@ export default function ReviewPage() {
     const url = `/itda/missions/${encodeURIComponent(missionId)}/reviews`;
     const firstFile = images[0]?.file || null;
 
-    try {
-      const formData = new FormData();
-
-      // request JSON 본문 (@RequestPart("request"))
+    // 공통: request(JSON) Blob 생성
+    const makeForm = (fileFieldName = "image") => {
+      const fd = new FormData();
       const requestData = { content, rating: Number(rating) };
       const jsonBlob = new Blob([JSON.stringify(requestData)], { type: "application/json" });
-      formData.append("request", jsonBlob, "request.json");
+      fd.append("request", jsonBlob, "request.json");
+      if (firstFile) fd.append(fileFieldName, firstFile, firstFile.name);
+      return fd;
+    };
 
-      // 선택 이미지(있으면) – 서버는 1장만 저장
-      if (firstFile) formData.append("image", firstFile, firstFile.name);
+    // axios 전송 (전역 JSON 헤더/transformRequest 무력화)
+    const postWithAxios = (fd) =>
+      api.post(url, fd, {
+        withCredentials: true,
+        headers: { "Content-Type": undefined }, // boundary 자동
+        transformRequest: [(data) => data], // 전역 stringify 우회
+      });
 
-      await api.post(url, formData, { withCredentials: true });
+    try {
+      if (firstFile) {
+        // 1) image 필드로 시도
+        try {
+          await postWithAxios(makeForm("image"));
+        } catch (e1) {
+          const status = e1?.response?.status;
+          if (status !== 400 && status !== 415 && status !== 422) throw e1;
+
+          // 2) file 필드로 재시도
+          try {
+            await postWithAxios(makeForm("file"));
+          } catch (e2) {
+            const status2 = e2?.response?.status;
+            if (status2 !== 400 && status2 !== 415 && status2 !== 422) throw e2;
+
+            // 3) img 필드로 재시도
+            try {
+              await postWithAxios(makeForm("img"));
+            } catch (e3) {
+              // 4) 최후: fetch로 전역 axios 설정 회피
+              const res = await fetch(url, {
+                method: "POST",
+                credentials: "include",
+                body: makeForm("image"),
+              });
+              if (!res.ok) {
+                const txt = await res.text().catch(() => "");
+                throw new Error(txt || `업로드 실패 (${res.status})`);
+              }
+            }
+          }
+        }
+      } else {
+        // 파일이 없으면 request(JSON)만 담아 전송
+        await postWithAxios(makeForm("image"));
+      }
 
       alert("리뷰가 등록되었습니다.");
       navigate("/"); // 메인 페이지로 이동
@@ -163,13 +220,26 @@ export default function ReviewPage() {
 
         {/* 내용 */}
         <textarea
-          placeholder="리뷰를 작성해주세요. (최소 10글자)"
+          placeholder={`리뷰를 작성해주세요. (최소 10글자, 최대 ${MAX_REVIEW_LEN}글자)`}
           className="review-textarea"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            // 붙여넣기 등을 고려해 안전하게 컷오프
+            const v = (e.target.value || "").slice(0, MAX_REVIEW_LEN);
+            setText(v);
+          }}
+          maxLength={MAX_REVIEW_LEN}
           disabled={!isReviewer || !missionId}
           rows={10}
+          aria-describedby="review-length-helper"
         />
+        <div
+          id="review-length-helper"
+          className={`review-length-helper ${text.length >= MAX_REVIEW_LEN ? "error" : ""}`}
+          aria-live="polite"
+        >
+          {text.length} / {MAX_REVIEW_LEN}자
+        </div>
 
         {/* 파일 업로드(서버는 1장만 저장) */}
         <div className="review-file-row">
@@ -191,7 +261,9 @@ export default function ReviewPage() {
             onClick={() => !fileDisabled && fileInputRef.current?.click()}
             disabled={fileDisabled}
           >
-            <span className="btn-icon" aria-hidden>🖼️</span>
+            <span className="btn-icon" aria-hidden>
+              🖼️
+            </span>
             이미지 선택
           </button>
 
@@ -211,10 +283,16 @@ export default function ReviewPage() {
           >
             삭제
           </button>
-          <span className="file-name" aria-live="polite">{filesCountLabel}</span>
+          <span className="file-name" aria-live="polite">
+            {filesCountLabel}
+          </span>
         </div>
 
-        <button onClick={handleAddReview} className="review-button" disabled={!isReviewer || !missionId}>
+        <button
+          onClick={handleAddReview}
+          className="review-button"
+          disabled={!isReviewer || !missionId}
+        >
           등록
         </button>
       </div>
@@ -227,23 +305,46 @@ export default function ReviewPage() {
               <span className="gallery-title">
                 {galleryMode === "delete" ? "이미지 삭제" : "이미지 미리보기"}
               </span>
-              <button type="button" className="gallery-close" aria-label="닫기" onClick={closeGallery} />
+              <button
+                type="button"
+                className="gallery-close"
+                aria-label="닫기"
+                onClick={closeGallery}
+              />
             </div>
 
             <div className="gallery-body">
-              <button type="button" className="gallery-nav left" onClick={prevImage} aria-label="이전 이미지">‹</button>
+              <button
+                type="button"
+                className="gallery-nav left"
+                onClick={prevImage}
+                aria-label="이전 이미지"
+              >
+                ‹
+              </button>
               <img
                 src={images[galleryIndex]?.previewUrl}
                 alt={`선택 이미지 ${galleryIndex + 1}/${images.length}`}
                 className="gallery-image small"
               />
-              <button type="button" className="gallery-nav right" onClick={nextImage} aria-label="다음 이미지">›</button>
+              <button
+                type="button"
+                className="gallery-nav right"
+                onClick={nextImage}
+                aria-label="다음 이미지"
+              >
+                ›
+              </button>
             </div>
 
             <div className="gallery-footer">
-              <div className="gallery-count">{galleryIndex + 1} / {images.length}</div>
+              <div className="gallery-count">
+                {galleryIndex + 1} / {images.length}
+              </div>
               {galleryMode === "delete" && (
-                <button type="button" className="delete-btn" onClick={deleteCurrentImage}>삭제하기</button>
+                <button type="button" className="delete-btn" onClick={deleteCurrentImage}>
+                  삭제하기
+                </button>
               )}
             </div>
           </div>
