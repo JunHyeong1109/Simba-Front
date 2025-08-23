@@ -14,20 +14,15 @@ export const JSON_HDR = {
 export const SESSION_ONLY = { withCredentials: true };
 
 /* ──────────────────────────────────────────────────────────
-   유틸: 로컬시간 → yyyy-MM-ddTHH:mm:ss.SSS (Z 없음)
+   유틸
    ────────────────────────────────────────────────────────── */
 const pad2 = (n) => String(n).padStart(2, "0");
-const formatLocalIsoSss = (d) => {
-  if (!(d instanceof Date) || isNaN(d?.valueOf())) return null;
-  const yyyy = d.getFullYear();
-  const MM = pad2(d.getMonth() + 1);
-  const dd = pad2(d.getDate());
-  const hh = pad2(d.getHours());
-  const mm = pad2(d.getMinutes());
-  const ss = pad2(d.getSeconds());
-  const sss = String(d.getMilliseconds()).padStart(3, "0");
-  return `${yyyy}-${MM}-${dd}T${hh}:${mm}:${ss}.${sss}`;
-};
+
+// 보기용: yyyy-MM-dd HH:mm
+const formatLocalMinuteSQL = (d) =>
+  d instanceof Date && !isNaN(d?.valueOf())
+    ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+    : "";
 
 /**
  * 문자열 → Date(local)
@@ -69,17 +64,35 @@ const parseToLocalDate = (v) => {
   return null;
 };
 
-// 원하는 최종 포맷으로 정규화: yyyy-MM-ddTHH:mm:ss.SSS (Z 없음)
-const normalizeToLocalIsoSss = (v) => {
+// yyyy-MM-ddTHH:mm:ss.SSS+09:00 (오프셋 포함)
+const formatLocalIsoWithOffset = (d) => {
+  if (!(d instanceof Date) || isNaN(d?.valueOf())) return null;
+  const yyyy = d.getFullYear();
+  const MM = pad2(d.getMonth() + 1);
+  const dd = pad2(d.getDate());
+  const hh = pad2(d.getHours());
+  const mm = pad2(d.getMinutes());
+  const ss = pad2(d.getSeconds());
+  const sss = String(d.getMilliseconds()).padStart(3, "0");
+  const offsetMin = -d.getTimezoneOffset(); // KST: +540
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetMin);
+  const oh = pad2(Math.floor(abs / 60));
+  const om = pad2(abs % 60);
+  return `${yyyy}-${MM}-${dd}T${hh}:${mm}:${ss}.${sss}${sign}${oh}:${om}`;
+};
+
+// 원하는 최종 포맷으로 정규화: yyyy-MM-ddTHH:mm:ss.SSS+09:00 (오프셋 포함)
+const normalizeToLocalIsoWithOffset = (v) => {
   const s = (v ?? "").toString().trim();
   if (!s) return null;
 
-  // 이미 최종 포맷이면 그대로 사용
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/.test(s)) return s;
+  // 이미 오프셋이 붙은 최종 포맷이면 그대로 사용
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}$/.test(s)) return s;
 
   // 직접 파싱해서 로컬 Date 생성 후 포맷
   const d = parseToLocalDate(s);
-  return d ? formatLocalIsoSss(d) : null;
+  return d ? formatLocalIsoWithOffset(d) : null;
 };
 
 const readHidden = (id) => {
@@ -129,7 +142,7 @@ export default function CreateButton({ collect, posterFile }) {
     // 날짜: collect(우선) → hidden(-at, -기본) 순서로 확보
     const rawStart =
       data.startAt ||
-      readHidden("event-start-at") || // DatePick이 넣어주는 yyyy-MM-ddTHH:mm:ss.SSS
+      readHidden("event-start-at") || // DatePick이 넣어주는 yyyy-MM-ddTHH:mm:ss.SSS(+09:00)
       readHidden("event-start");      // 백업(yyyy-MM-dd HH:mm)
 
     const rawEnd =
@@ -137,9 +150,9 @@ export default function CreateButton({ collect, posterFile }) {
       readHidden("event-end-at") ||
       readHidden("event-end");
 
-    // ✅ 최종 포맷으로 정규화(yyyy-MM-ddTHH:mm:ss.SSS, Z 없음)
-    const startAt = normalizeToLocalIsoSss(rawStart);
-    const endAt = normalizeToLocalIsoSss(rawEnd);
+    // ✅ 최종 포맷으로 정규화(yyyy-MM-ddTHH:mm:ss.SSS+09:00)
+    const startAt = normalizeToLocalIsoWithOffset(rawStart);
+    const endAt = normalizeToLocalIsoWithOffset(rawEnd);
 
     if (!startAt || !endAt) {
       alert("시작/종료 일시를 선택하세요.");
@@ -157,8 +170,8 @@ export default function CreateButton({ collect, posterFile }) {
       const requestPayload = {
         title,
         description,
-        startAt, // 예: "2025-08-22T20:00:00.000"
-        endAt,   // 예: "2025-08-23T18:30:00.000"
+        startAt, // 예: "2025-08-22T20:00:00.000+09:00"
+        endAt,   // 예: "2025-08-23T18:30:00.000+09:00"
         storeId,
         rewardContent,
       };

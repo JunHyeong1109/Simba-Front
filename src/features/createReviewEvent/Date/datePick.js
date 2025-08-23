@@ -17,8 +17,8 @@ const toLocalMinuteSQL = (d) =>
     ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
     : "";
 
-// 서버/호환용: yyyy-MM-ddTHH:mm:ss.SSS (Z 없음, UTC 변환 없음)
-const toLocalISOString = (d) => {
+// 서버/호환용: yyyy-MM-ddTHH:mm:ss.SSS+09:00 (오프셋 포함)
+const toLocalISOStringWithOffset = (d) => {
   if (!(d instanceof Date) || isNaN(d?.valueOf())) return "";
   const yyyy = d.getFullYear();
   const MM = pad2(d.getMonth() + 1);
@@ -27,7 +27,12 @@ const toLocalISOString = (d) => {
   const mm = pad2(d.getMinutes());
   const ss = pad2(d.getSeconds());
   const sss = String(d.getMilliseconds()).padStart(3, "0");
-  return `${yyyy}-${MM}-${dd}T${hh}:${mm}:${ss}.${sss}`;
+  const offsetMin = -d.getTimezoneOffset(); // KST: +540
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetMin);
+  const oh = pad2(Math.floor(abs / 60));
+  const om = pad2(abs % 60);
+  return `${yyyy}-${MM}-${dd}T${hh}:${mm}:${ss}.${sss}${sign}${oh}:${om}`;
 };
 
 function DatePick() {
@@ -45,7 +50,7 @@ function DatePick() {
   };
 
   const writeBoth = (baseId, date) => {
-    writeHidden(`${baseId}-at`, toLocalISOString(date));
+    writeHidden(`${baseId}-at`, toLocalISOStringWithOffset(date)); // 오프셋 포함
     writeHidden(baseId, toLocalMinuteSQL(date));
   };
 
@@ -111,7 +116,7 @@ function DatePick() {
 
   return (
     <div className="global-fix">
-      {/* hidden 값: -at(ISO.SSS) / 기본(보기 문자열) 모두 유지 */}
+      {/* hidden 값: -at(ISO.SSS+offset) / 기본(보기 문자열) 모두 유지 */}
       <input type="hidden" id="event-start-at" />
       <input type="hidden" id="event-end-at" />
       <input type="hidden" id="event-start" />

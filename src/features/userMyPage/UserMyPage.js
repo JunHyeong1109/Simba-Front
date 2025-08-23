@@ -4,26 +4,19 @@ import { useOutletContext } from "react-router-dom";
 import api from "../../api";
 import "./UserMyPage.css";
 
-// 바우처 필터 탭 순서 (전체를 맨 앞에)
 const FILTERS = ["ALL", "ISSUED", "USED", "EXPIRED"];
-
-// (선택) 공통 옵션: 세션 쿠키 필요 시
 const WITH_CREDENTIALS = { withCredentials: true };
 
 export default function MyPage() {
   const outletCtx = useOutletContext();
-
-  // ✅ 컨텍스트에 id가 있는 경우에만 초기 user로 인정
   const initialUser = outletCtx?.user?.id ? outletCtx.user : null;
 
   const [user, setUser] = useState(initialUser);
   const [loadingUser, setLoadingUser] = useState(!initialUser);
 
-  // 리뷰
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
 
-  // 바우처
   const [vouchers, setVouchers] = useState([]);
   const [loadingVouchers, setLoadingVouchers] = useState(false);
   const [voucherFilter, setVoucherFilter] = useState("ISSUED");
@@ -32,10 +25,9 @@ export default function MyPage() {
   const initial = (user?.name || user?.email || "U").toString().slice(0, 1).toUpperCase();
   const displayName = user?.username || user?.name || user?.email || "사용자";
 
-  // ✅ 유저 확보
+  // 유저 확보
   useEffect(() => {
     let alive = true;
-
     (async () => {
       try {
         if (outletCtx?.user?.id) {
@@ -45,7 +37,6 @@ export default function MyPage() {
           }
           return;
         }
-
         setLoadingUser(true);
         const { data } = await api.get("/itda/me", WITH_CREDENTIALS);
         if (alive) setUser(data?.id ? data : null);
@@ -55,17 +46,13 @@ export default function MyPage() {
         if (alive) setLoadingUser(false);
       }
     })();
-
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [outletCtx?.user?.id]);
 
   // 리뷰 로드
   useEffect(() => {
     if (!user?.id) return;
     let alive = true;
-
     (async () => {
       try {
         setLoadingReviews(true);
@@ -80,76 +67,86 @@ export default function MyPage() {
         if (alive) setLoadingReviews(false);
       }
     })();
-
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [user?.id]);
 
-  // 바우처 로드 함수
+  // 날짜 포맷 (문자열/ISO/오프셋/epoch 모두 지원)
+  const fmtDate = (d) => {
+    if (d === null || d === undefined || d === "") return "-";
+    if (typeof d === "number") {
+      const ms = d > 1e12 ? d : d * 1000;
+      const dt = new Date(ms);
+      return isNaN(dt.getTime()) ? "-" : dt.toISOString().slice(0, 10);
+    }
+    const s = String(d).trim();
+    if (!s) return "-";
+    const dt = new Date(s);
+    return isNaN(dt.getTime()) ? s.slice(0, 10) : dt.toISOString().slice(0, 10);
+  };
+
+  // 바우처 로드
   const fetchVouchers = async (filter) => {
     if (!user?.id) return;
     setLoadingVouchers(true);
 
-    // ✅ 미션 보상명/매장명/기간을 폭넓게 흡수하는 정규화
     const normalize = (list, assumedFilter) =>
       list.map((v) => {
-        // 1) ID 통일
+        // ID 통일
         const id =
           v.id ?? v.voucherId ?? v.voucherID ?? v.uuid ?? v.code ?? v._id;
 
-        // 2) 상태 통일
+        // 상태 통일
         const rawStatus = (v.vstatus || v.status || assumedFilter || "ISSUED")
           .toString()
           .toUpperCase();
         const status = assumedFilter === "ALL" ? rawStatus : rawStatus;
 
-        // 3) 매장명(사용처)
+        // 사용처(매장명)
         const storeName =
           v.storeName ||
           v.store?.name ||
           v.mission?.storeName ||
           v.mission?.store?.name ||
-          v.merchantName ||
           "";
 
-        // 4) 보상명(= 바우처 타이틀)
+        // 🔑 보상명(제목) — rewardContent를 최우선 사용
         const rewardTitle =
-          v.rewardTitle ||
-          v.reward ||
-          v.missionReward ||
-          v.mission?.reward ||
-          v.benefit ||
-          v.prize ||
-          v.reward_name ||
+          v.rewardContent ||                    // ✅ 아이스 아메리카노 1잔
           v.rewardName;
-        const title = rewardTitle || v.title || v.name || "바우처";
 
-        // 5) 사용기간
+        // 최종 제목 텍스트
+        const pureTitle = rewardTitle || v.title || v.name;
+
+        // 화면 표시용 제목: [매장명]보상내용  (중간 공백 없이)
+        const displayTitle = `${storeName ? `[${storeName}]` : ""}${pureTitle}`;
+
+        // 사용기간(시작/끝) — 다양한 키 흡수
         const start =
-          v.startAt ||
-          v.start_date ||
-          v.startDate ||
-          v.validFrom ||
-          v.validFromAt ||
-          v.usageStart ||
-          v.period?.start ||
-          v.mission?.voucherStart ||
-          v.voucher?.startAt ||
-          null;
-        const end =
-          v.endAt ||
-          v.end_date ||
-          v.endDate ||
-          v.validTo ||
-          v.validToAt ||
-          v.usageEnd ||
-          v.period?.end ||
-          v.mission?.voucherEnd ||
-          v.voucher?.endAt ||
+          v.validFrom ??
+          v.startAt ??
+          v.start_date ??
+          v.startDate ??
+          v.issuedAt ??
           null;
 
-        return { ...v, id, status, storeName, title, start, end };
+        const end =
+          v.validTo ??
+          v.endAt ??
+          v.end_date ??
+          v.endDate ??
+          v.expireAt ??
+          v.expirationDate ??
+          null;
+
+        return {
+          ...v,
+          id,
+          status,
+          storeName,
+          title: displayTitle, // ✅ 바로 표시용으로 저장
+          start,
+          end,
+        };
       });
 
     try {
@@ -204,7 +201,6 @@ export default function MyPage() {
     []
   );
 
-  // ✅ 리뷰 상태 칩 정보
   const reviewStatusMeta = useMemo(
     () => ({
       APPROVED: { label: "승인됨", chip: "success" },
@@ -213,15 +209,6 @@ export default function MyPage() {
     }),
     []
   );
-
-  const fmtDate = (d) => {
-    if (!d) return "-";
-    try {
-      const dt = new Date(d);
-      if (!isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
-    } catch { }
-    return String(d).slice(0, 10);
-  };
 
   const handleUseVoucher = async (voucherId) => {
     if (!voucherId) return;
@@ -273,8 +260,9 @@ export default function MyPage() {
             ) : (
               reviews.map((review) => {
                 const statusKey =
-                  (review.status || "").toString().toUpperCase(); // 서버에서 주는 상태값
-                const statusInfo = reviewStatusMeta[statusKey] || reviewStatusMeta.PENDING;
+                  (review.status || "").toString().toUpperCase();
+                const statusInfo =
+                  reviewStatusMeta[statusKey] || reviewStatusMeta.PENDING;
 
                 return (
                   <article key={review.id} className="mypage-card">
@@ -284,7 +272,9 @@ export default function MyPage() {
                         📷
                       </div>
                       <div className="mypage-store-info">
-                        <div className="mypage-store-name">{review.storeName}</div>
+                        <div className="mypage-store-name">
+                          {review.storeName}
+                        </div>
                       </div>
                     </div>
 
@@ -295,14 +285,18 @@ export default function MyPage() {
                       </div>
                       <div className="mypage-review-body">
                         <div className="mypage-review-meta">
-                          <span className="mypage-review-author">{displayName}</span>
-                          {/* ✅ 상태 칩 */}
+                          <span className="mypage-review-author">
+                            {displayName}
+                          </span>
+                          {/* 상태 칩 */}
                           <span className={`mypage-chip ${statusInfo.chip}`}>
                             {statusInfo.label}
                           </span>
                         </div>
                         {review.content && (
-                          <p className="mypage-review-text">{review.content}</p>
+                          <p className="mypage-review-text">
+                            {review.content}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -355,10 +349,9 @@ export default function MyPage() {
                       </div>
 
                       <div className="mypage-reward-body">
-                        <div className="mypage-reward-title">
-                          {v.storeName ? `[${v.storeName}] ` : ""}
-                          {v.title}
-                        </div>
+                        {/* 제목: [매장명]보상내용 */}
+                        <div className="mypage-reward-title">{v.title}</div>
+
                         <div className="mypage-reward-period">
                           {v.start || v.end ? (
                             <>사용기간: {fmtDate(v.start)} ~ {fmtDate(v.end)}</>
@@ -366,6 +359,7 @@ export default function MyPage() {
                             <>사용기간: -</>
                           )}
                           <span className="mypage-reward-place">
+                            {" "}
                             · 사용처: {v.storeName || "-"}
                           </span>
                         </div>

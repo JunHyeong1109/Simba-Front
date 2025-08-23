@@ -99,3 +99,20 @@
   outline: none;
   box-shadow: 0 0 0 3px rgba(59,130,246,.18);
 }
+
+/* URL 입력 행 */
+.poster-url-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.poster-url-input {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
