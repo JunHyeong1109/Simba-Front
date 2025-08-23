@@ -8,12 +8,12 @@ export default function ReviewPage() {
   const [params] = useSearchParams();
   const missionId = params.get("missionId");
 
-  // ───────── 유틸: missionId 정규화 + URL 빌더
+  // ───────── util
   const safeId = (id) => String(id ?? "").trim();
   const makeMissionReviewUrl = (id) =>
     `/itda/missions/${encodeURIComponent(safeId(id))}/reviews`;
 
-  // ───────── 사용자
+  // ───────── user
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const roleUp = (user?.role || "").toString().toUpperCase();
@@ -31,12 +31,10 @@ export default function ReviewPage() {
         if (alive) setLoadingUser(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
-  // ───────── 서버 리뷰 목록
+  // ───────── list (server)
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [reviewsErr, setReviewsErr] = useState("");
@@ -54,23 +52,25 @@ export default function ReviewPage() {
     return `${y}.${m}.${d}`;
   };
 
+  // 백엔드 ReviewResponse → 화면 모델
   const normalizeReview = (r) => {
-    const name =
-      r.userName || r.username || r.nickname || r.user?.name || "사용자";
-    const rawRating = r.rating ?? r.stars ?? 0;
-    const rating =
-      Math.max(0, Math.min(5, Math.floor(typeof rawRating === "number" ? rawRating : Number(rawRating) || 0)));
-    const text = r.text ?? r.content ?? "";
+    const ratingNum = Math.max(
+      0,
+      Math.min(5, Math.floor(typeof r.rating === "number" ? r.rating : Number(r.rating) || 0))
+    );
     const ts = r.createdAt || r.updatedAt || r.created_at || r.ts || Date.now();
-    const images = r.images || r.imageUrls || (r.imageUrl ? [r.imageUrl] : []) || [];
+    const imgOne = r.imgUrl ? [r.imgUrl] : [];
+    const name =
+      r.userName || r.username || r.nickname || (r.userId ? `사용자 #${r.userId}` : "사용자");
+
     return {
       id: r.id ?? r.reviewId ?? r._id ?? Math.random().toString(36).slice(2),
       ts: new Date(ts).valueOf() || Date.now(),
       name,
-      text,
-      rating,
+      text: r.content ?? "",     // ← content 사용
+      rating: ratingNum,         // ← rating 정수(0~5)
       date: formatKSTDate(new Date(ts)),
-      images: Array.isArray(images) ? images : [],
+      images: imgOne,            // ← 단일 imgUrl을 배열로 표시
     };
   };
 
@@ -83,35 +83,27 @@ export default function ReviewPage() {
     }
     setLoadingReviews(true);
     setReviewsErr("");
-
     try {
       let rows = [];
-      const tryCalls = [
+      const attempts = [
         async () =>
           api
             .get(makeMissionReviewUrl(sid), { withCredentials: true })
             .then(({ data }) => (Array.isArray(data) ? data : data?.items || data?.content || [])),
         async () =>
           api
-            .get(`/itda/reviews`, { params: { missionId: sid }, withCredentials: true })
+            .get("/itda/reviews", { params: { missionId: sid }, withCredentials: true })
             .then(({ data }) => (Array.isArray(data) ? data : data?.items || data?.content || [])),
       ];
-
-      let ok = false;
-      for (const call of tryCalls) {
+      for (const tryCall of attempts) {
         try {
-          rows = await call();
-          ok = true;
+          rows = await tryCall();
           break;
         } catch {
-          // next
+          /* try next */
         }
       }
-      if (!ok) {
-        throw new Error("리뷰를 불러오지 못했습니다.");
-      }
-
-      setReviews(rows.map(normalizeReview));
+      setReviews((rows || []).map(normalizeReview));
     } catch (e) {
       setReviews([]);
       setReviewsErr(e?.response?.data?.message || e?.message || "리뷰를 불러오지 못했습니다.");
@@ -120,55 +112,42 @@ export default function ReviewPage() {
     }
   }, [missionId]);
 
-  useEffect(() => {
-    fetchReviews();
-  }, [fetchReviews]);
+  useEffect(() => { fetchReviews(); }, [fetchReviews]);
 
-  // ───────── 작성 상태
+  // ───────── compose
   const [text, setText] = useState("");
   const [rating, setRating] = useState(0);
-
-  // 선택 이미지(최대 10장)
-  const [images, setImages] = useState([]);
+  const [images, setImages] = useState([]); // 로컬 프리뷰는 여러 장 유지(서버는 1장만 저장)
   const fileInputRef = useRef(null);
 
-  // 갤러리 모달
+  // preview modal
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [galleryMode, setGalleryMode] = useState("preview"); // 'preview' | 'delete'
+  const [galleryMode, setGalleryMode] = useState("preview");
   const [galleryIndex, setGalleryIndex] = useState(0);
 
   const handleStarClick = (v) => setRating(v);
 
-  // 파일 추가
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-
     const remain = Math.max(0, 10 - images.length);
     const slice = files.slice(0, remain);
-
-    if (slice.length < files.length) {
-      alert("이미지는 최대 10장까지 업로드할 수 있습니다.");
-    }
-
+    if (slice.length < files.length) alert("이미지는 최대 10장까지 업로드할 수 있습니다.");
     const next = slice.map((file) => ({
       id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
       file,
       previewUrl: URL.createObjectURL(file),
     }));
-
     setImages((prev) => [...prev, ...next]);
-    e.target.value = ""; // 같은 파일 다시 선택 가능
+    e.target.value = "";
   };
 
-  useEffect(() => {
-    return () => {
-      images.forEach((img) => img.previewUrl && URL.revokeObjectURL(img.previewUrl));
-    };
+  useEffect(() => () => {
+    images.forEach((img) => img.previewUrl && URL.revokeObjectURL(img.previewUrl));
   }, [images]);
 
   const openGallery = (mode = "preview") => {
-    if (images.length === 0) return;
+    if (!images.length) return;
     setGalleryMode(mode);
     setGalleryIndex(0);
     setGalleryOpen(true);
@@ -176,43 +155,56 @@ export default function ReviewPage() {
   const closeGallery = () => setGalleryOpen(false);
   const prevImage = () => images.length && setGalleryIndex((i) => (i - 1 + images.length) % images.length);
   const nextImage = () => images.length && setGalleryIndex((i) => (i + 1) % images.length);
-
   const deleteCurrentImage = () => {
     if (!images.length) return;
     const idx = galleryIndex;
     const tgt = images[idx];
     if (tgt?.previewUrl) URL.revokeObjectURL(tgt.previewUrl);
-    const newArr = images.filter((_, i) => i !== idx);
-    setImages(newArr);
-    if (!newArr.length) {
-      setGalleryOpen(false);
-    } else {
-      setGalleryIndex(idx >= newArr.length ? newArr.length - 1 : idx);
-    }
+    const arr = images.filter((_, i) => i !== idx);
+    setImages(arr);
+    if (!arr.length) setGalleryOpen(false);
+    else setGalleryIndex(idx >= arr.length ? arr.length - 1 : idx);
   };
 
-  // 리뷰 등록
+  // ───────── submit (백엔드 키 기준: content, rating, (단일) 이미지 → imgUrl)
   const handleAddReview = async () => {
     const sid = safeId(missionId);
-    if (!sid) {
-      alert("잘못된 접근입니다. (missionId 없음)");
-      return;
-    }
+    if (!sid) return alert("잘못된 접근입니다. (missionId 없음)");
     if (!isReviewer) return;
     if (!text.trim() || rating === 0) return;
 
-    try {
-      const form = new FormData();
-      form.append("text", text.trim());
-      form.append("rating", String(rating));
-      images.forEach((img) => {
-        if (img.file) form.append("images", img.file, img.file.name);
-      });
+    const url = makeMissionReviewUrl(sid);
+    const firstFile = images[0]?.file || null;
 
-      const url = makeMissionReviewUrl(sid);
-      await api.post(url, form, {
-        withCredentials: true, // 세션 쿠키 필요 시
-      });
+    // 전송 시나리오:
+    //  A) 파일 있음 → multipart + 파일 필드명 폴백(image → file → img)
+    //  B) 파일 없음 → JSON { content, rating }
+    const sendFD = (field) => {
+      const fd = new FormData();
+      fd.append("content", text.trim());
+      fd.append("rating", String(rating));
+      if (firstFile) fd.append(field, firstFile, firstFile.name);
+      return api.post(url, fd, { withCredentials: true });
+    };
+    const sendJSON = () =>
+      api.post(url, { content: text.trim(), rating }, { withCredentials: true });
+
+    try {
+      if (firstFile) {
+        try {
+          await sendFD("image");
+        } catch (e1) {
+          if (e1?.response?.status !== 400) throw e1;
+          try {
+            await sendFD("file");
+          } catch (e2) {
+            if (e2?.response?.status !== 400) throw e2;
+            await sendFD("img");
+          }
+        }
+      } else {
+        await sendJSON();
+      }
 
       await fetchReviews();
       setText("");
@@ -221,26 +213,30 @@ export default function ReviewPage() {
       setImages([]);
       alert("리뷰가 등록되었습니다.");
     } catch (e) {
-      const msg = e?.response?.data?.message || e?.message || "리뷰 등록 중 오류가 발생했습니다.";
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        e?.message ||
+        "리뷰 등록 중 오류가 발생했습니다.";
       alert(msg);
     }
   };
 
-  // 정렬
+  // ───────── sort
   const [sortBy, setSortBy] = useState("latest");
   const sortedReviews = useMemo(() => {
     const list = [...reviews];
     if (sortBy === "rating") {
-      list.sort((a, b) =>
-        b.rating !== a.rating ? b.rating - a.rating : (b.ts || 0) - (a.ts || 0)
-      );
+      list.sort((a, b) => (b.rating !== a.rating ? b.rating - a.rating : (b.ts || 0) - (a.ts || 0)));
     } else {
       list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
     }
     return list;
   }, [reviews, sortBy]);
 
-  const filesCountLabel = images.length ? `${images.length}개 선택됨` : "선택된 이미지 없음";
+  const filesCountLabel = images.length
+    ? `${images.length}개 선택됨 (서버 저장은 1장)`
+    : "선택된 이미지 없음";
   const fileDisabled = !isReviewer || !missionId || images.length >= 10;
 
   return (
@@ -249,9 +245,7 @@ export default function ReviewPage() {
       <div className="review-toolbar">
         <h2 className="review-title">전체 리뷰</h2>
         <div className="review-sort">
-          <label htmlFor="sort" className="sr-only">
-            정렬
-          </label>
+          <label htmlFor="sort" className="sr-only">정렬</label>
           <select
             id="sort"
             value={sortBy}
@@ -273,35 +267,24 @@ export default function ReviewPage() {
         ) : sortedReviews.length === 0 ? (
           <p className="review-empty">아직 리뷰가 없습니다.</p>
         ) : (
-          sortedReviews.map((review) => (
-            <div key={review.id} className="review-item">
-              <div className="review-avatar" aria-hidden>
-                👤
-              </div>
+          sortedReviews.map((r) => (
+            <div key={r.id} className="review-item">
+              <div className="review-avatar" aria-hidden>👤</div>
               <div className="review-content">
                 <div className="review-top">
-                  <span className="review-name">{review.name}</span>
-                  <span className="review-date">{review.date}</span>
+                  <span className="review-name">{r.name}</span>
+                  <span className="review-date">{r.date}</span>
                 </div>
-                <div
-                  className="review-stars readonly"
-                  aria-label={`별점 ${review.rating}점`}
-                >
-                  {"★".repeat(Math.max(0, Math.min(5, Math.floor(review.rating))))}
-                  {"☆".repeat(Math.max(0, 5 - Math.min(5, Math.floor(review.rating))))}
+                <div className="review-stars readonly" aria-label={`별점 ${r.rating}점`}>
+                  {"★".repeat(r.rating)}
+                  {"☆".repeat(5 - r.rating)}
                 </div>
-                <div className="review-text">{review.text}</div>
+                <div className="review-text">{r.text}</div>
 
-                {Array.isArray(review.images) && review.images.length > 0 && (
+                {r.images.length > 0 && (
                   <div className="review-images-grid">
-                    {review.images.map((src, i) => (
-                      <img
-                        key={i}
-                        src={src}
-                        alt="리뷰 이미지"
-                        className="review-image"
-                        loading="lazy"
-                      />
+                    {r.images.map((src, i) => (
+                      <img key={i} src={src} alt="리뷰 이미지" className="review-image" loading="lazy" />
                     ))}
                   </div>
                 )}
@@ -311,18 +294,12 @@ export default function ReviewPage() {
         )}
       </div>
 
-      {/* 입력 영역 */}
-      <div
-        className={`review-input-container ${
-          !isReviewer || !missionId ? "disabled" : ""
-        }`}
-      >
+      {/* 작성 영역 */}
+      <div className={`review-input-container ${!isReviewer || !missionId ? "disabled" : ""}`}>
         {loadingUser ? (
           <div className="review-guard">사용자 정보를 불러오는 중…</div>
         ) : !missionId ? (
-          <div className="review-guard">
-            잘못된 접근입니다. (missionId가 없습니다)
-          </div>
+          <div className="review-guard">잘못된 접근입니다. (missionId가 없습니다)</div>
         ) : !isReviewer ? (
           <div className="review-guard">리뷰어만 리뷰를 작성할 수 있습니다.</div>
         ) : null}
@@ -343,7 +320,7 @@ export default function ReviewPage() {
           ))}
         </div>
 
-        {/* 텍스트 입력: textarea 10줄, resize 없음(CSS) */}
+        {/* 내용 */}
         <textarea
           placeholder="리뷰를 작성해주세요."
           className="review-textarea"
@@ -353,7 +330,7 @@ export default function ReviewPage() {
           rows={10}
         />
 
-        {/* 파일 업로드: 숨김 input + 일반 버튼 */}
+        {/* 파일 업로드(서버는 1장만 저장) */}
         <div className="review-file-row">
           <input
             ref={fileInputRef}
@@ -364,7 +341,7 @@ export default function ReviewPage() {
             onChange={handleImageChange}
             className="review-file-input"
             disabled={fileDisabled}
-            title="최대 10장까지 선택 가능"
+            title="최대 10장까지 선택 가능 (서버 저장은 1장)"
           />
 
           <button
@@ -373,9 +350,7 @@ export default function ReviewPage() {
             onClick={() => !fileDisabled && fileInputRef.current?.click()}
             disabled={fileDisabled}
           >
-            <span className="btn-icon" aria-hidden>
-              🖼️
-            </span>
+            <span className="btn-icon" aria-hidden>🖼️</span>
             이미지 선택
           </button>
 
@@ -395,21 +370,15 @@ export default function ReviewPage() {
           >
             삭제
           </button>
-          <span className="file-name" aria-live="polite">
-            {filesCountLabel}
-          </span>
+          <span className="file-name" aria-live="polite">{filesCountLabel}</span>
         </div>
 
-        <button
-          onClick={handleAddReview}
-          className="review-button"
-          disabled={!isReviewer || !missionId}
-        >
+        <button onClick={handleAddReview} className="review-button" disabled={!isReviewer || !missionId}>
           등록
         </button>
       </div>
 
-      {/* 하단 갤러리 모달(축소 버전) */}
+      {/* 하단 갤러리 모달(축소) */}
       {galleryOpen && images.length > 0 && (
         <div className="gallery-overlay" aria-modal="true" role="dialog">
           <div className="gallery-sheet small" role="document">
@@ -417,52 +386,23 @@ export default function ReviewPage() {
               <span className="gallery-title">
                 {galleryMode === "delete" ? "이미지 삭제" : "이미지 미리보기"}
               </span>
-              <button
-                type="button"
-                className="gallery-close"
-                aria-label="닫기"
-                onClick={closeGallery}
-              />
+              <button type="button" className="gallery-close" aria-label="닫기" onClick={closeGallery} />
             </div>
 
             <div className="gallery-body">
-              <button
-                type="button"
-                className="gallery-nav left"
-                onClick={prevImage}
-                aria-label="이전 이미지"
-              >
-                ‹
-              </button>
-
+              <button type="button" className="gallery-nav left" onClick={prevImage} aria-label="이전 이미지">‹</button>
               <img
                 src={images[galleryIndex]?.previewUrl}
                 alt={`선택 이미지 ${galleryIndex + 1}/${images.length}`}
                 className="gallery-image small"
               />
-
-              <button
-                type="button"
-                className="gallery-nav right"
-                onClick={nextImage}
-                aria-label="다음 이미지"
-              >
-                ›
-              </button>
+              <button type="button" className="gallery-nav right" onClick={nextImage} aria-label="다음 이미지">›</button>
             </div>
 
             <div className="gallery-footer">
-              <div className="gallery-count">
-                {galleryIndex + 1} / {images.length}
-              </div>
+              <div className="gallery-count">{galleryIndex + 1} / {images.length}</div>
               {galleryMode === "delete" && (
-                <button
-                  type="button"
-                  className="delete-btn"
-                  onClick={deleteCurrentImage}
-                >
-                  삭제하기
-                </button>
+                <button type="button" className="delete-btn" onClick={deleteCurrentImage}>삭제하기</button>
               )}
             </div>
           </div>
