@@ -1,163 +1,122 @@
-/* == 컨테이너 == */
-.event-list { }
-
-/* 상태 메시지 */
-.event-list-empty,
-.event-list-error {
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #eee;
-  background: #f8f9fa;
-  color: #555;
-}
-.event-list-error {
-  background: #fff4f4;
-  border-color: #ffd5d5;
-  color: #c00;
-}
-
-/* == 그리드 == */
-.event-list-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-/* 작은 태블릿부터 2열 */
-@media (min-width: 560px) {
-  .event-list-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-}
-
-/* 큰 태블릿/데스크탑에서 3열 */
-@media (min-width: 900px) {
-  .event-list-grid {
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 12px;
-  }
-}
-
-/* == 카드 == */
-.event-card {
-  display: grid;
-  grid-template-columns: 92px 1fr;  /* 썸네일 92px 고정 */
-  min-height: 92px;
-  gap: 0;
-  border: 1px solid #eee;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #fff;
-  cursor: pointer;
-  transition: box-shadow .2s ease, transform .05s ease;
-}
-
-.event-card:hover {
-  box-shadow: 0 8px 20px rgba(0,0,0,.08);
-}
-
-.event-card:active {
-  transform: translateY(1px);
-}
-
-.event-card:focus {
-  outline: 2px solid #90caf9;
-  outline-offset: 2px;
-}
-
-/* 모션 최소화 선호 시 전환 줄이기 */
-@media (prefers-reduced-motion: reduce) {
-  .event-card {
-    transition: none;
-  }
-}
-
-/* == 썸네일 == */
-.event-card-thumb {
-  width: 92px;
-  height: 100%;
-  background: #f3f3f3;
-  overflow: hidden;
-}
-
-.event-card-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+/* 루트 컨테이너는 기존 클래스 재사용 */
+.event-list {
   display: block;
 }
 
-/* == 본문 == */
-.event-card-body {
-  padding: 8px;
+/* 공통 메시지 */
+.event-list-empty {
+  color: #6b7280;
+  border: 1px dashed #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  background: #fafafa;
+}
+
+.event-list-error {
+  color: #b91c1c;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+/* ---------------- Store Panel ---------------- */
+.store-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  display: grid;
+  gap: 12px;
+}
+
+/* 헤더 섹션 */
+.store-head {
+  display: grid;
+  gap: 6px;
+}
+
+.store-name {
+  font-weight: 800;
+  font-size: 18px;
+  color: #111827;
+}
+
+.store-addr {
+  color: #374151;
+  line-height: 1.4;
+}
+
+.store-stars {
+  color: #6b7280;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.store-stars-num {
+  font-weight: 700;
+  color: #111827;
+}
+
+.store-stars-badge {
+  font-variant-numeric: tabular-nums;
+}
+
+.store-summary {
+  color: #374151;
+  line-height: 1.5;
+}
+
+/* 구분선 */
+.store-divider {
+  height: 1px;
+  background: #eee;
+  margin: 2px 0;
+  border-radius: 1px;
+}
+
+/* 미션 목록 */
+.store-missions {
+  display: grid;
+  gap: 8px;
+}
+
+.store-missions-title {
+  font-weight: 700;
+  color: #111827;
+}
+
+.store-missions-empty {
+  margin: 0;
+}
+
+/* 목록/아이템 */
+.store-mission-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.store-mission-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
   display: grid;
   gap: 4px;
 }
 
-.event-card-title {
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 1.3;
-  color: #111;
+.store-mission-title {
+  font-weight: 600;
+  color: #111827;
 }
 
-/* 매장명 */
-.event-card-store {
-  color: #444;
+.store-mission-dates {
   font-size: 13px;
-  line-height: 1.35;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 매장 요약(새로 추가) — 2줄로 줄바꿈/말줄임 */
-.event-card-summary {
-  margin-top: 2px;
-  color: #555;
-  font-size: 13px;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;         /* 최대 2줄 */
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 기간 */
-.event-card-dates {
-  color: #666;
-  font-size: 12px;
-  line-height: 1.3;
-  margin-top: 2px;
-}
-
-/* 다크 모드 살짝 대응(선택) */
-@media (prefers-color-scheme: dark) {
-  .event-card {
-    background: #1b1b1b;
-    border-color: #2a2a2a;
-  }
-  .event-card-thumb {
-    background: #222;
-  }
-  .event-list-empty,
-  .event-list-error {
-    background: #161616;
-    border-color: #2a2a2a;
-    color: #bbb;
-  }
-  .event-list-error {
-    background: #2b1515;
-    border-color: #4a2626;
-    color: #ff9a9a;
-  }
-  .event-card-title { color: #f1f1f1; }
-  .event-card-store { color: #ddd; }
-  .event-card-summary { color: #cfcfcf; }
-  .event-card-dates { color: #b5b5b5; }
+  color: #6b7280;
 }

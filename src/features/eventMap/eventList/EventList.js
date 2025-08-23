@@ -1,218 +1,265 @@
-// src/features/eventMap/eventList/EventList.js
 import React, { useEffect, useState } from "react";
 import api from "../../../api";
 import "./EventList.css";
 
-function EventList({
-  status = "joinable",
-  storeId,
-  onSelect,
-}) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+/**
+ * 역할: 선택된 매장의 정보 패널
+ *
+ * Props
+ * - storeId: 선택된 매장 id
+ * - address?: { road?: string, jibun?: string } (지도 역지오코딩 결과)
+ */
+function EventList({ storeId, address }) {
+  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // ⬇ 추가: 매장 요약 캐시 (storeId -> summary)
-  const [summariesByStoreId, setSummariesByStoreId] = useState({});
+  const [store, setStore] = useState(null);
+  const [summary, setSummary] = useState("");
+  const [avgRating, setAvgRating] = useState(null);
 
+  const [ongoing, setOngoing] = useState([]);
+  const [missionsErr, setMissionsErr] = useState("");
+
+  // ---- utils
   const toDate = (v) => {
-    if (!v) return null;
-    const d = new Date(v);
+    if (v === null || v === undefined || v === "") return null;
+    if (typeof v === "number") {
+      const ms = v > 1e12 ? v : v * 1000;
+      const d = new Date(ms);
+      return isNaN(d) ? null : d;
+    }
+    const d = new Date(String(v));
     return isNaN(d) ? null : d;
   };
-  const isExpired = (m, now = new Date()) => {
-    const end = toDate(m.endAt || m.endDate);
-    return !!(end && end < now);
-  };
-  const isScheduled = (m, now = new Date()) => {
-    const start = toDate(m.startAt || m.startDate);
-    return !!(start && start > now);
-  };
-  const isOngoing = (m, now = new Date()) => {
-    return !isScheduled(m, now) && !isExpired(m, now);
+
+  const fmtDate = (d) => {
+    const DT = toDate(d);
+    return DT ? DT.toISOString().slice(0, 10) : "-";
   };
 
+  const isOngoing = (m, now = new Date()) => {
+    const s = toDate(m.startAt || m.startDate);
+    const e = toDate(m.endAt || m.endDate);
+    if (s && s > now) return false;
+    if (e && e < now) return false;
+    return true;
+  };
+
+  const stars = (n) => {
+    const v = Math.max(0, Math.min(5, Math.floor(Number(n) || 0)));
+    return "★".repeat(v) + "☆".repeat(5 - v);
+  };
+
+  // ---- data fetch
   useEffect(() => {
     let alive = true;
-    (async () => {
+
+    const reset = () => {
+      setStore(null);
+      setSummary("");
+      setAvgRating(null);
+      setOngoing([]);
+      setErr("");
+      setMissionsErr("");
+    };
+
+    const fetchAvgRating = async (sid) => {
+      const tryCalls = [
+        async () => (await api.get(`/itda/stores/${sid}/rating`)).data,
+        async () => (await api.get(`/itda/stores/${sid}/stats`)).data,
+        async () =>
+          (await api.get(`/itda/reviews/summary`, { params: { storeId: sid } }))
+            .data,
+      ];
+      for (const call of tryCalls) {
+        try {
+          const res = await call();
+          const avg =
+            res?.avgRating ??
+            res?.averageRating ??
+            res?.avg ??
+            res?.rating ??
+            null;
+          if (typeof avg === "number") return avg;
+        } catch {
+          /* next */
+        }
+      }
+      // fallback: 리뷰로 계산
+      try {
+        const { data } = await api.get("/itda/reviews", {
+          params: { storeId: sid, status: "APPROVED" },
+        });
+        const rows = Array.isArray(data) ? data : data?.items || data?.content || [];
+        if (!rows.length) return null;
+        const sum = rows.reduce((acc, r) => {
+          const raw = r.rating ?? r.stars ?? 0;
+          const num = typeof raw === "number" ? raw : Number(raw) || 0;
+          return acc + num;
+        }, 0);
+        return Math.round((sum / rows.length) * 10) / 10;
+      } catch {
+        return null;
+      }
+    };
+
+    const fetchAll = async (sid) => {
       setLoading(true);
       setErr("");
       try {
-        const statusParam = (status ?? "").toString();
-        const statusUpper = statusParam.toUpperCase();
+        // 1) store detail
+        const { data: storeData } = await api.get(`/itda/stores/${sid}`);
+        if (!alive) return;
+        setStore(storeData || null);
 
-        let url = "";
-        if (statusParam === "joinable") {
-          url = "/itda/missions/joinable";
-        } else if (storeId && statusParam) {
-          url = `/itda/missions?storeId=${storeId}&status=${encodeURIComponent(statusUpper)}`;
-        } else if (storeId) {
-          url = `/itda/missions?storeId=${storeId}`;
-        } else if (statusParam) {
-          url = `/itda/missions?status=${encodeURIComponent(statusUpper)}`;
-        } else {
-          url = "/itda/missions/joinable";
+        // 2) summary
+        try {
+          const { data: sum } = await api.get(`/itda/stores/${sid}/summary`);
+          const text = typeof sum === "string" ? sum : sum?.summary || "";
+          if (alive) setSummary(text);
+        } catch {
+          if (alive) setSummary("");
         }
 
-        const { data } = await api.get(url);
-        const list = Array.isArray(data) ? data : data?.items || [];
-        if (!alive) return;
-
-        const normalized = list.map((m) => {
-          const s = m.store || {};
-          const toNum = (v) =>
-            v === null || v === undefined || v === ""
-              ? undefined
-              : Number.isFinite(v)
-              ? v
-              : Number(v);
-          return {
-            ...m,
-            _store: {
-              ...s,
-              id: s.id ?? m.storeId,         // ⬅ id를 명시적으로 보정
-              latitude: toNum(s.latitude),
-              longitude: toNum(s.longitude),
-            },
-          };
-        });
-
-        const now = new Date();
-        let out = normalized;
-
-        if (statusParam === "joinable" || statusUpper === "ONGOING") {
-          out = normalized.filter((m) => isOngoing(m, now));
-        } else if (statusUpper === "SCHEDULED") {
-          out = normalized.filter((m) => isScheduled(m, now));
-        } else if (statusUpper === "ENDED") {
-          out = normalized.filter((m) => isExpired(m, now));
-        } else if (storeId && !statusParam) {
-          out = normalized.filter((m) => isOngoing(m, now));
+        // 3) avg rating
+        try {
+          const avg = await fetchAvgRating(sid);
+          if (alive)
+            setAvgRating(typeof avg === "number" ? Math.round(avg * 10) / 10 : null);
+        } catch {
+          if (alive) setAvgRating(null);
         }
 
-        if (!alive) return;
-        setItems(out);
-
-        // ⬇ 고유 매장 id 수집 후 summary 병렬 로드
-        const ids = Array.from(
-          new Set(
-            out
-              .map((m) => m._store?.id ?? m.storeId)
-              .filter((id) => id !== undefined && id !== null)
-          )
-        );
-
-        if (ids.length > 0) {
-          const results = await Promise.allSettled(
-            ids.map(async (id) => {
-              const { data: sum } = await api.get(`/itda/stores/${id}/summary`);
-              const text = typeof sum === "string" ? sum : (sum?.summary ?? "");
-              return { id, summary: text };
-            })
-          );
-          if (!alive) return;
-
-          const map = {};
-          for (const r of results) {
-            if (r.status === "fulfilled" && r.value) {
-              map[r.value.id] = r.value.summary;
-            }
+        // 4) ongoing missions
+        try {
+          const { data: msData } = await api.get(`/itda/missions`, {
+            params: { storeId: sid },
+          });
+          const list = Array.isArray(msData) ? msData : msData?.items || [];
+          const now = new Date();
+          const flat = list
+            .filter((m) => isOngoing(m, now))
+            .map((m) => ({
+              id: m.id ?? m.missionId,
+              title: m.title || "미션",
+              start: m.startAt || m.startDate || null,
+              end: m.endAt || m.endDate || null,
+            }));
+          if (alive) setOngoing(flat);
+        } catch (e) {
+          if (alive) {
+            setOngoing([]);
+            setMissionsErr(
+              e?.response?.data?.message || "미션 정보를 불러오지 못했습니다."
+            );
           }
-          setSummariesByStoreId(map);
-        } else {
-          setSummariesByStoreId({});
         }
       } catch (e) {
-        if (!alive) return;
-        setErr(e?.response?.data?.message || "미션 목록을 불러오지 못했습니다.");
-        setItems([]);
-        setSummariesByStoreId({});
+        if (alive) {
+          setErr(e?.response?.data?.message || "매장 정보를 불러오지 못했습니다.");
+          setStore(null);
+          setSummary("");
+          setAvgRating(null);
+          setOngoing([]);
+        }
       } finally {
         if (alive) setLoading(false);
       }
-    })();
+    };
+
+    if (!storeId) {
+      reset();
+      return;
+    }
+    fetchAll(storeId);
+
     return () => {
       alive = false;
     };
-  }, [status, storeId]);
+  }, [storeId]);
 
-  const hasItems = items.length > 0;
-
-  const fmtDate = (d) => {
-    if (!d) return "";
-    try {
-      const dt = new Date(d);
-      if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
-    } catch {}
-    return String(d).slice(0, 10);
-  };
-
-  const getPoster = (m) =>
-    m.posterUrl || m.poster || m.imageUrl || m.thumbnailUrl || "";
-
-  const handleClick = (m) => {
-    const lat = m?._store?.latitude ?? m?.latitude;
-    const lng = m?._store?.longitude ?? m?.longitude;
-    onSelect?.({ mission: m, lat, lng });
-  };
+  const storeName = store?.storeName || store?.name || "-";
+  const storeAddress =
+    address?.road ||
+    store?.roadAddress ||
+    store?.address ||
+    store?.jibunAddress ||
+    address?.jibun ||
+    "-";
 
   return (
-    <div className="event-list" role="region" aria-label="진행 가능 미션 목록">
-      {loading && <div className="event-list-empty">불러오는 중...</div>}
-      {!loading && err && <div className="event-list-error">{err}</div>}
-      {!loading && !err && !hasItems && (
-        <div className="event-list-empty">등록된 미션이 없습니다.</div>
+    <div className="event-list" role="region" aria-label="매장 정보">
+      {!storeId && (
+        <div className="event-list-empty">마커를 눌러 매장을 선택하세요.</div>
       )}
 
-      {!loading && !err && hasItems && (
-        <ul className="event-list-grid">
-          {items.map((m) => {
-            const poster = getPoster(m);
-            const store = m?.store || {};
-            const storeName = store.name || m?.storeName || "";
-            const storeIdForSum = m?._store?.id ?? m.storeId;
-            const summary = summariesByStoreId[storeIdForSum] || "";
-            const start = m?.startAt || m?.startDate;
-            const end = m?.endAt || m?.endDate;
+      {storeId && loading && (
+        <div className="event-list-empty">불러오는 중...</div>
+      )}
 
-            return (
-              <li
-                key={m.id}
-                className="event-card"
-                onClick={() => handleClick(m)}
-                onKeyDown={(e) => e.key === "Enter" && handleClick(m)}
-                role="button"
-                tabIndex={0}
-                aria-label={`${m.title || "미션"} 선택`}
-                title={m.title || "미션"}
-              >
-                <div className="event-card-thumb">
-                  {poster && <img src={poster} alt="미션 포스터" />}
-                </div>
-                <div className="event-card-body">
-                  <div className="event-card-title">{m.title || "미션"}</div>
+      {storeId && !loading && err && (
+        <div className="event-list-error">{err}</div>
+      )}
 
-                  {storeName && (
-                    <div className="event-card-store">{storeName}</div>
-                  )}
+      {storeId && !loading && !err && (
+        <div className="store-panel">
+          {/* 매장 기본 정보 */}
+          <div className="store-head">
+            <div className="store-name">{storeName}</div>
+            <div className="store-addr">{storeAddress}</div>
+            <div
+              className="store-stars"
+              aria-label={
+                avgRating != null ? `평균 별점 ${avgRating}점` : "평균 별점 없음"
+              }
+            >
+              {avgRating != null ? (
+                <>
+                  <strong className="store-stars-num">{avgRating}</strong>
+                  <span className="store-stars-badge">{stars(avgRating)}</span>
+                </>
+              ) : (
+                "평균 별점 정보 없음"
+              )}
+            </div>
+            {summary && (
+              <div className="store-summary" title={summary}>
+                {summary}
+              </div>
+            )}
+          </div>
 
-                  {/* ⬇ 매장 summary 추가 */}
-                  {summary && (
-                    <div className="event-card-summary" title={summary}>
-                      {summary}
+          {/* 구분선 */}
+          <div className="store-divider" />
+
+          {/* 진행 중 미션 */}
+          <div className="store-missions">
+            <div className="store-missions-title">진행 중인 미션</div>
+
+            {missionsErr && (
+              <div className="event-list-error">{missionsErr}</div>
+            )}
+
+            {!missionsErr && ongoing.length === 0 && (
+              <div className="event-list-empty store-missions-empty">
+                현재 진행 중인 미션이 없습니다.
+              </div>
+            )}
+
+            {!missionsErr && ongoing.length > 0 && (
+              <ul className="store-mission-list">
+                {ongoing.map((m) => (
+                  <li key={m.id} className="store-mission-item">
+                    <div className="store-mission-title">{m.title}</div>
+                    <div className="store-mission-dates">
+                      {fmtDate(m.start)} ~ {fmtDate(m.end)}
                     </div>
-                  )}
-
-                  {(start || end) && (
-                    <div className="event-card-dates">
-                      {fmtDate(start)} ~ {fmtDate(end)}
-                    </div>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
