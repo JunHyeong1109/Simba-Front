@@ -17,22 +17,16 @@ const toLocalMinuteSQL = (d) =>
     ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
     : "";
 
-// 서버/호환용: yyyy-MM-ddTHH:mm:ss.SSS+09:00 (오프셋 포함)
-const toLocalISOStringWithOffset = (d) => {
+/**
+ * 서버 전송용(UTC, Z 제거, .SSS 유지):
+ * - Date 객체를 UTC ISO 문자열로 변환한 뒤
+ * - 끝의 'Z'만 제거하여 "YYYY-MM-DDTHH:mm:ss.SSS"로 전송
+ * 예) (KST에서) 2025-08-24 05:26 선택 → 내부 UTC: 2025-08-23T20:26:00.000Z
+ *   → 전송값: "2025-08-23T20:26:00.000"
+ */
+const toUTCISOString = (d) => {
   if (!(d instanceof Date) || isNaN(d?.valueOf())) return "";
-  const yyyy = d.getFullYear();
-  const MM = pad2(d.getMonth() + 1);
-  const dd = pad2(d.getDate());
-  const hh = pad2(d.getHours());
-  const mm = pad2(d.getMinutes());
-  const ss = pad2(d.getSeconds());
-  const sss = String(d.getMilliseconds()).padStart(3, "0");
-  const offsetMin = -d.getTimezoneOffset(); // KST: +540
-  const sign = offsetMin >= 0 ? "+" : "-";
-  const abs = Math.abs(offsetMin);
-  const oh = pad2(Math.floor(abs / 60));
-  const om = pad2(abs % 60);
-  return `${yyyy}-${MM}-${dd}T${hh}:${mm}:${ss}.${sss}${sign}${oh}:${om}`;
+  return d.toISOString().replace("Z", "");
 };
 
 function DatePick() {
@@ -50,7 +44,8 @@ function DatePick() {
   };
 
   const writeBoth = (baseId, date) => {
-    writeHidden(`${baseId}-at`, toLocalISOStringWithOffset(date)); // 오프셋 포함
+    // 서버(UTC, Z 제거 .SSS 유지) / 화면용(로컬 보기 문자열) 모두 기록
+    writeHidden(`${baseId}-at`, toUTCISOString(date)); // ✅ UTC .SSS, Z 없음
     writeHidden(baseId, toLocalMinuteSQL(date));
   };
 
@@ -116,7 +111,7 @@ function DatePick() {
 
   return (
     <div className="global-fix">
-      {/* hidden 값: -at(ISO.SSS+offset) / 기본(보기 문자열) 모두 유지 */}
+      {/* hidden 값: -at(서버 전송용 UTC 문자열, Z 제거) / 기본(보기 문자열) */}
       <input type="hidden" id="event-start-at" />
       <input type="hidden" id="event-end-at" />
       <input type="hidden" id="event-start" />
