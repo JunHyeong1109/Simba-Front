@@ -50,8 +50,10 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     initialized.current = true;
 
     (async () => {
-      getCurrentLocation(async (lat, lng) => {
-        const kakao = await loadKakaoMaps(KAKAO_APP_KEY);
+      // ✅ 항상 SDK를 먼저 로드
+      const kakao = await loadKakaoMaps(KAKAO_APP_KEY);
+
+      const initMapAt = (lat, lng) => {
         const container = containerRef.current;
         if (!container) return;
 
@@ -97,7 +99,13 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
         kakao.maps.event.addListener(map, "click", onMapClickRef.current);
         kakao.maps.event.addListener(map, "dragstart", onMapDragStartRef.current);
         kakao.maps.event.addListener(map, "zoom_changed", onMapZoomChangedRef.current);
-      });
+      };
+
+      // ✅ 위치 성공/실패와 무관하게 반드시 초기화되도록
+      getCurrentLocation(
+        (lat, lng) => initMapAt(lat, lng),
+        () =>       initMapAt(37.5665, 126.9780) // 실패 시 기본 좌표(서울시청)
+      );
     })();
 
     return () => {
@@ -116,6 +124,17 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
       setMapReady(false); // ✅ 언마운트 시 플래그 해제
     };
   }, []);
+
+  // ✅ 지도 준비되면 한번 relayout (탭/모달/레이아웃 변화 대비)
+  useEffect(() => {
+    const kakao = window.kakao;
+    const map = mapRef.current;
+    if (!kakao || !map || !mapReady) return;
+    setTimeout(() => {
+      map.relayout();
+      map.setCenter(map.getCenter());
+    }, 0);
+  }, [mapReady]);
 
   // 2) 모든 매장 불러오기
   useEffect(() => {

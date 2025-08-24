@@ -12,7 +12,7 @@ export default function Register() {
   const next = params.get("next") || "/";
   const initialRole = params.get("role");
   const [role, setRole] = useState(
-    initialRole === "OWNER" ? "OWNER" : "REVIEWER"
+    initialRole === "OWNER" ? "OWNER" : "USER"
   );
 
   const [username, setUsername] = useState(""); // 계정 아이디
@@ -37,7 +37,7 @@ export default function Register() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
       return "올바른 이메일 형식을 입력하세요.";
     }
-    if (role !== "OWNER" && role !== "REVIEWER") {
+    if (role !== "OWNER" && role !== "USER") {
       return "역할을 선택하세요.";
     }
     return "";
@@ -61,7 +61,7 @@ export default function Register() {
         username: username.trim(),
         password: password.trim(),
         email: email.trim(),
-        role, // "OWNER" | "REVIEWER"
+        role, // "OWNER" | "USER"
       });
 
       alert("회원가입 성공!");
@@ -107,7 +107,7 @@ export default function Register() {
               </label>
 
               <label
-                className={"seg" + (role === "REVIEWER" ? " active" : "")}
+                className={"seg" + (role === "USER" ? " active" : "")}
                 htmlFor="role-reviewer"
               >
                 <input
@@ -115,9 +115,9 @@ export default function Register() {
                   className="sr-only"
                   type="radio"
                   name="role"
-                  value="REVIEWER"
-                  checked={role === "REVIEWER"}
-                  onChange={() => setRole("REVIEWER")}
+                  value="USER"
+                  checked={role === "USER"}
+                  onChange={() => setRole("USER")}
                 />
                 <span className="seg-title">리뷰어</span>
                 <span className="seg-desc">미션 참여 / 리뷰 작성</span>

@@ -30,7 +30,7 @@ export default function TopBar({
   // 역할 기반 마이페이지 경로 결정
   const resolveMyPageRoute = (u, fallback = myPageRoute) => {
     const role = (u?.role || "").toString().toUpperCase();
-    if (role === "REVIEWER") return "/mypage1";
+    if (role === "USER") return "/mypage1";
     if (role === "OWNER") return "/mypage2";
     return fallback;
   };
