@@ -28,7 +28,8 @@ export default function EventMap() {
     null;
 
   return (
-    <div className="event-page-80">
+    // ✅ 스코프 클래스 부여: 맵 관련 CSS가 여기 안에서만 적용됨
+    <div className="itda-eventmap event-page-80">
       <div className="map-list-layout">
         {/* 왼쪽: 선택 매장 정보 & 진행 중 미션 목록 */}
         <div className="list-col">
@@ -44,7 +45,7 @@ export default function EventMap() {
         <div className="map-col">
           <KaKaoMap
             storeIdToFocus={storeIdToFocus}
-            focus={selected}                 // 리스트/지도 선택 → 지도 중심 이동
+            focus={selected} // 리스트/지도 선택 → 지도 중심 이동
             onMissionSelect={handleMissionSelect} // 지도에서 선택 → 하단 상세/리스트 동기화
           />
         </div>

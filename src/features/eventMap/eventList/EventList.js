@@ -69,7 +69,7 @@ function EventList({ storeId, address, onPickMission }) {
   // 리뷰 메타(평균/개수)
   const fetchReviewMeta = async (sid) => {
     const tryCalls = [
-      async () => (await api.get(`/itda/reviews/summary`, { params: { storeId: sid } })).data,
+      async () => (await api.get(`/itda/stores/${encodeURIComponent(sid)}/reviews/summary`)).data, // ✅ 경로 변경
       async () => (await api.get(`/itda/stores/${encodeURIComponent(sid)}/stats`)).data,
       async () => (await api.get(`/itda/stores/${encodeURIComponent(sid)}/rating`)).data,
     ];
@@ -132,7 +132,7 @@ function EventList({ storeId, address, onPickMission }) {
         // 2) summary (JSON 응답에서 summary만 꺼내기) + ✅ 정리
         try {
           const { data } = await api.get(`/itda/stores/${encodeURIComponent(sid)}/summary`);
-          const text = normalizeSummary(data?.summary); // 핵심 변경
+          const text = normalizeSummary(data?.summary);
           if (alive) setSummary(text);
         } catch {
           if (alive) setSummary("");

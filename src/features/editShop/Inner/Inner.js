@@ -215,7 +215,8 @@ function Inner() {
   };
 
   return (
-    <>
+    // ✅ 전역 스타일 오염 방지를 위한 스코프 래퍼
+    <div className="itda-edit">
       {isEdit && loadingExisting ? (
         <div className="loader">가게 정보를 불러오는 중…</div>
       ) : isEdit && loadError ? (
@@ -307,7 +308,7 @@ function Inner() {
           setAddrModalOpen(false);
         }}
       />
-    </>
+    </div>
   );
 }
 

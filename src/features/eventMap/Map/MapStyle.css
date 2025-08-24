@@ -1,15 +1,14 @@
 /* src/features/eventMap/map/MapStyle.css */
 
-/* 컨테이너 래퍼 */
-.map_wrap {
+/* ✅ 모든 규칙을 .itda-eventmap 아래로 한정 */
+.itda-eventmap .map_wrap {
   position: relative;
   width: 100%;
   height: 500px;  /* 필요 시 조정 */
   margin: 0;
 }
 
-/* 지도 DIV */
-.map_canvas {
+.itda-eventmap .map_canvas {
   width: 100%;
   height: 100%;
   position: relative;
@@ -17,7 +16,7 @@
 }
 
 /* 좌측 상단 주소 박스 */
-.hAddr {
+.itda-eventmap .hAddr {
   position: absolute;
   left: 10px;
   top: 10px;
@@ -27,21 +26,21 @@
   padding: 5px;
 }
 
-/* 제목 */
-.title {
+/* 제목 (⚠️ 전역 .title과 충돌 → 스코프 한정) */
+.itda-eventmap .title {
   font-weight: bold;
   display: block;
 }
 
 /* 중심 주소 텍스트 */
-#centerAddr {
+.itda-eventmap #centerAddr {
   display: block;
   margin-top: 2px;
   font-weight: normal;
 }
 
 /* ---------- 인포윈도우 공통 ---------- */
-.infoWindow {
+.itda-eventmap .infoWindow {
   box-sizing: border-box;
   padding: 10px 12px;
   max-width: 280px;
@@ -52,33 +51,33 @@
   overflow-wrap: anywhere;
 }
 
-.infoTitle {
+.itda-eventmap .infoTitle {
   font-weight: 700;
   display: block;
   margin-bottom: 6px;
 }
 
-.infoMeta {
+.itda-eventmap .infoMeta {
   color: #666;
   font-size: 12px;
   margin: 2px 0 6px;
 }
 
-.infoDivider {
+.itda-eventmap .infoDivider {
   margin: 8px 0;
   border: 0;
   border-top: 1px solid rgba(0,0,0,0.12);
 }
 
-.infoRow { margin: 2px 0; }
+.itda-eventmap .infoRow { margin: 2px 0; }
 
-.infoLabel {
+.itda-eventmap .infoLabel {
   color: #555;
   font-weight: 600;
   margin-right: 4px;
 }
 
-.infoAddr {
+.itda-eventmap .infoAddr {
   margin-top: 2px;
   white-space: normal !important;
   text-overflow: clip;
@@ -86,13 +85,13 @@
 }
 
 /* 미션 섹션 */
-.missionHeader { font-weight: 600; margin: 6px 0 4px; }
-.missionList   { margin: 0; padding-left: 16px; }
-.missionList li{ margin: 2px 0; white-space: normal; }
-.missionEmpty  { color: #888; font-style: italic; }
+.itda-eventmap .missionHeader { font-weight: 600; margin: 6px 0 4px; }
+.itda-eventmap .missionList   { margin: 0; padding-left: 16px; }
+.itda-eventmap .missionList li{ margin: 2px 0; white-space: normal; }
+.itda-eventmap .missionEmpty  { color: #888; font-style: italic; }
 
 /* (이전 호환) */
-.bAddr {
+.itda-eventmap .bAddr {
   padding: 5px;
   white-space: normal !important;
   text-overflow: clip;
