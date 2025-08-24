@@ -48,10 +48,24 @@ function EventList({ storeId, address, onPickMission }) {
     return "★".repeat(v) + "☆".repeat(5 - v);
   };
 
+  // ✅ 서버에서 내려온 요약을 사람이 읽을 수 있는 한 줄로 정리
+  const normalizeSummary = (raw) => {
+    let s = typeof raw === "string" ? raw : raw?.summary || "";
+    s = (s || "").trim();
+
+    // HTML/태그, 에러 문구 패턴이면 표시하지 않음
+    const looksHtml = /^</.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
+    const looksError = /(오류|error|exception|fail(ed)?)/i.test(s);
+    if (!s || looksHtml || looksError) return "";
+
+    // 너무 길면 자르기
+    if (s.length > 180) s = s.slice(0, 180).trim() + "…";
+    return s;
+  };
+
   // 리뷰 메타(평균/개수)
   const fetchReviewMeta = async (sid) => {
     const tryCalls = [
-      // ✅ 리뷰 요약 엔드포인트는 기존대로 query 사용(서버 스펙 그대로)
       async () => (await api.get(`/itda/reviews/summary`, { params: { storeId: sid } })).data,
       async () => (await api.get(`/itda/stores/${encodeURIComponent(sid)}/stats`)).data,
       async () => (await api.get(`/itda/stores/${encodeURIComponent(sid)}/rating`)).data,
@@ -112,10 +126,10 @@ function EventList({ storeId, address, onPickMission }) {
         if (!alive) return;
         setStore(storeData || null);
 
-        // 2) summary (✅ 경로형으로 고정)
+        // 2) summary (경로형) + ✅ 정리
         try {
           const { data: sum } = await api.get(`/itda/stores/${encodeURIComponent(sid)}/summary`);
-          const text = typeof sum === "string" ? sum : sum?.summary || "";
+          const text = normalizeSummary(sum);
           if (alive) setSummary(text);
         } catch {
           if (alive) setSummary("");
@@ -149,7 +163,7 @@ function EventList({ storeId, address, onPickMission }) {
               title: m.title || "미션",
               start: m.startAt || m.startDate || null,
               end: m.endAt || m.endDate || null,
-              _raw: m, // 원본
+              _raw: m,
             }));
           if (alive) setOngoing(flat);
         } catch (e) {
@@ -215,9 +229,8 @@ function EventList({ storeId, address, onPickMission }) {
     });
   };
 
-  // 리뷰 개수 표기값
-  const reviewCountLabel =
-    typeof reviewCount === "number" ? String(reviewCount) : "-";
+  const reviewCountLabel = typeof reviewCount === "number" ? String(reviewCount) : "-";
+  const hasSummary = !!summary;
 
   return (
     <div className="event-list" role="region" aria-label="매장 정보">
@@ -248,10 +261,10 @@ function EventList({ storeId, address, onPickMission }) {
 
             {/* 리뷰 요약 | 리뷰 개수 : N */}
             <div className="store-review-quick">
-              리뷰 요약 {" "} | {" "} 리뷰 개수 : {reviewCountLabel}
+              리뷰 요약 {hasSummary ? "" : "(없음)"} {" "} | {" "} 리뷰 개수 : {reviewCountLabel}
             </div>
 
-            {summary && (
+            {hasSummary && (
               <div className="store-summary" title={summary}>
                 {summary}
               </div>
