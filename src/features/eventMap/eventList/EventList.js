@@ -51,9 +51,10 @@ function EventList({ storeId, address, onPickMission }) {
   // 리뷰 메타(평균/개수)
   const fetchReviewMeta = async (sid) => {
     const tryCalls = [
+      // ✅ 리뷰 요약 엔드포인트는 기존대로 query 사용(서버 스펙 그대로)
       async () => (await api.get(`/itda/reviews/summary`, { params: { storeId: sid } })).data,
-      async () => (await api.get(`/itda/stores/${sid}/stats`)).data,
-      async () => (await api.get(`/itda/stores/${sid}/rating`)).data,
+      async () => (await api.get(`/itda/stores/${encodeURIComponent(sid)}/stats`)).data,
+      async () => (await api.get(`/itda/stores/${encodeURIComponent(sid)}/rating`)).data,
     ];
     for (const call of tryCalls) {
       try {
@@ -107,13 +108,13 @@ function EventList({ storeId, address, onPickMission }) {
       setErr("");
       try {
         // 1) store detail
-        const { data: storeData } = await api.get(`/itda/stores/${sid}`);
+        const { data: storeData } = await api.get(`/itda/stores/${encodeURIComponent(sid)}`);
         if (!alive) return;
         setStore(storeData || null);
 
-        // 2) summary
+        // 2) summary (✅ 경로형으로 고정)
         try {
-          const { data: sum } = await api.get(`/itda/stores/${sid}/summary`);
+          const { data: sum } = await api.get(`/itda/stores/${encodeURIComponent(sid)}/summary`);
           const text = typeof sum === "string" ? sum : sum?.summary || "";
           if (alive) setSummary(text);
         } catch {
@@ -245,11 +246,9 @@ function EventList({ storeId, address, onPickMission }) {
               )}
             </div>
 
-            {/* ⬇️ 여기만 변경: 리뷰 요약 | 리뷰 개수 : N */}
+            {/* 리뷰 요약 | 리뷰 개수 : N */}
             <div className="store-review-quick">
-              리뷰 요약
-              {" "} | {" "}
-              리뷰 개수 : {reviewCountLabel}
+              리뷰 요약 {" "} | {" "} 리뷰 개수 : {reviewCountLabel}
             </div>
 
             {summary && (

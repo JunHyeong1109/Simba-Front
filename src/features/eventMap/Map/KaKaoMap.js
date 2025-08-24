@@ -21,9 +21,11 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
 
   const storeMarkersRef = useRef([]);
   const onMissionSelectRef = useRef(onMissionSelect);
-  useEffect(() => { onMissionSelectRef.current = onMissionSelect; }, [onMissionSelect]);
+  useEffect(() => {
+    onMissionSelectRef.current = onMissionSelect;
+  }, [onMissionSelect]);
 
-  // 메인 진입 강조용 포커스 마커 & 타이머
+  // 메인 진입 강조용 포커스 마커 & 타이머 (초기 생성/표시는 하지 않음)
   const focusMarkerRef = useRef(null);
   const focusHideTimerRef = useRef(null);
 
@@ -89,7 +91,8 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
 
         // 중심 주소 표시
         searchAddrFromCoords(map.getCenter(), displayCenterInfo);
-        onMapIdleRef.current = () => searchAddrFromCoords(map.getCenter(), displayCenterInfo);
+        onMapIdleRef.current = () =>
+          searchAddrFromCoords(map.getCenter(), displayCenterInfo);
         kakao.maps.event.addListener(map, "idle", onMapIdleRef.current);
 
         // 강조 마커를 쉽게 숨기기 위한 사용자 이벤트
@@ -104,17 +107,37 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
       // ✅ 위치 성공/실패와 무관하게 반드시 초기화되도록
       getCurrentLocation(
         (lat, lng) => initMapAt(lat, lng),
-        () =>       initMapAt(37.5665, 126.9780) // 실패 시 기본 좌표(서울시청)
+        () => initMapAt(37.5665, 126.9780) // 실패 시 기본 좌표(서울시청)
       );
     })();
 
     return () => {
       const kakao = window.kakao;
       if (kakao && mapRef.current) {
-        if (onMapIdleRef.current) kakao.maps.event.removeListener(mapRef.current, "idle", onMapIdleRef.current);
-        if (onMapClickRef.current) kakao.maps.event.removeListener(mapRef.current, "click", onMapClickRef.current);
-        if (onMapDragStartRef.current) kakao.maps.event.removeListener(mapRef.current, "dragstart", onMapDragStartRef.current);
-        if (onMapZoomChangedRef.current) kakao.maps.event.removeListener(mapRef.current, "zoom_changed", onMapZoomChangedRef.current);
+        if (onMapIdleRef.current)
+          kakao.maps.event.removeListener(
+            mapRef.current,
+            "idle",
+            onMapIdleRef.current
+          );
+        if (onMapClickRef.current)
+          kakao.maps.event.removeListener(
+            mapRef.current,
+            "click",
+            onMapClickRef.current
+          );
+        if (onMapDragStartRef.current)
+          kakao.maps.event.removeListener(
+            mapRef.current,
+            "dragstart",
+            onMapDragStartRef.current
+          );
+        if (onMapZoomChangedRef.current)
+          kakao.maps.event.removeListener(
+            mapRef.current,
+            "zoom_changed",
+            onMapZoomChangedRef.current
+          );
       }
       storeMarkersRef.current.forEach((m) => m.setMap(null));
       storeMarkersRef.current = [];
@@ -166,7 +189,9 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
         if (alive) setStores([]);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // 2-B) 진행 가능한 미션이 있는 매장 목록(Set) 불러오기 → 빨간 마커 표시용
@@ -186,7 +211,9 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
         if (alive) setHotStoreIds(new Set());
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // 3) 매장 마커 렌더링 (매장당 1개)
@@ -202,7 +229,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
 
     // 마커 이미지(빨간 핀)
     const redPinSVG =
-      'data:image/svg+xml;utf8,' +
+      "data:image/svg+xml;utf8," +
       encodeURIComponent(
         `<svg width="24" height="34" viewBox="0 0 24 34" xmlns="http://www.w3.org/2000/svg">
           <defs><filter id="s" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity=".25"/></filter></defs>
@@ -228,9 +255,11 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
 
         // 역지오코딩 → 도로명/지번
         geocoder.coord2Address(lng, lat, (res, status) => {
-          let road = "", jibun = "";
+          let road = "",
+            jibun = "";
           if (status === kakao.maps.services.Status.OK && res?.[0]) {
-            road = res.find((r) => r.road_address)?.road_address?.address_name || "";
+            road =
+              res.find((r) => r.road_address)?.road_address?.address_name || "";
             jibun = res[0]?.address?.address_name || "";
           }
 
@@ -269,7 +298,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     }
   }, [stores, hotStoreIds]);
 
-  // 4-A) /map?storeId=... → 해당 위치로 이동 (강조 마커는 자동 숨김)
+  // 4-A) /map?storeId=... → 해당 위치로 이동 (강조 마커 없음)
   useEffect(() => {
     const kakao = window.kakao;
     const map = mapRef.current;
@@ -278,7 +307,8 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     (async () => {
       try {
         const { data } = await api.get(`/itda/stores/${storeIdToFocus}`);
-        const toNum = (v) => (v === null || v === undefined || v === "" ? undefined : Number(v));
+        const toNum = (v) =>
+          v === null || v === undefined || v === "" ? undefined : Number(v);
         const lat = toNum(data?.latitude);
         const lng = toNum(data?.longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
@@ -286,25 +316,15 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
         const pos = new kakao.maps.LatLng(lat, lng);
         map.panTo(pos);
 
-        // 강조 마커 표시 (말풍선 없음)
-        if (!focusMarkerRef.current) {
-          focusMarkerRef.current = new kakao.maps.Marker({ zIndex: 4 });
-        }
-        focusMarkerRef.current.setPosition(pos);
-        focusMarkerRef.current.setMap(map);
-
-        // 일정 시간 후 자동 숨김 (1.5초)
-        if (focusHideTimerRef.current) {
-          clearTimeout(focusHideTimerRef.current);
-        }
-        focusHideTimerRef.current = setTimeout(() => {
-          hideFocusMarker();
-        }, 1500);
+        // ✅ 파란(기본) 강조 마커를 생성/표시하지 않음
+        // 혹시 이전에 남아있을 수 있는 강조 마커가 있다면 숨김
+        hideFocusMarker();
       } catch (e) {
         console.warn("store focus failed:", e?.response?.data || e);
       }
     })();
 
+    // 타이머 정리만 남김
     return () => {
       if (focusHideTimerRef.current) {
         clearTimeout(focusHideTimerRef.current);
@@ -313,7 +333,7 @@ export default function KaKaoMap({ onMissionSelect, storeIdToFocus, focus }) {
     };
   }, [storeIdToFocus, mapReady]); // ✅ mapReady 추가로 초기화 후에도 재실행됨
 
-  // 4-B) 리스트/상세에서 좌표 전달 시 → 강조 마커 즉시 숨김 + 지도 이동
+  // 4-B) 리스트/상세에서 좌표 전달 시 → 강조 마커 즉시 숨김 + 지도 이동 (마커 생성 없음)
   useEffect(() => {
     const kakao = window.kakao;
     const map = mapRef.current;

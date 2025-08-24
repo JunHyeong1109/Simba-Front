@@ -110,7 +110,7 @@ export default function ManageShop() {
         setLoading(true);
         setErr("");
 
-        const { data } = await api.get("/itda/stores");
+        const { data } = await api.get("/itda/me/stores");
         const list = Array.isArray(data) ? data : data?.items || [];
 
         const normalized = list.map((item) => normalizeStore(item));
