@@ -48,10 +48,13 @@ function EventList({ storeId, address, onPickMission }) {
     return "★".repeat(v) + "☆".repeat(5 - v);
   };
 
-  // ✅ 서버에서 내려온 요약을 사람이 읽을 수 있는 한 줄로 정리
-  const normalizeSummary = (raw) => {
-    let s = typeof raw === "string" ? raw : raw?.summary || "";
-    s = (s || "").trim();
+  // ✅ 서버에서 내려온 요약 문자열만 처리
+  const normalizeSummary = (s) => {
+    if (!s) return "";
+    s = String(s).trim();
+
+    // 기본 안내 문구는 그대로 노출
+    if (/요약 결과 없음|리뷰가 하나도 없습니다/.test(s)) return s;
 
     // HTML/태그, 에러 문구 패턴이면 표시하지 않음
     const looksHtml = /^</.test(s) || /<\/?[a-z][\s\S]*>/i.test(s);
@@ -126,10 +129,10 @@ function EventList({ storeId, address, onPickMission }) {
         if (!alive) return;
         setStore(storeData || null);
 
-        // 2) summary (경로형) + ✅ 정리
+        // 2) summary (JSON 응답에서 summary만 꺼내기) + ✅ 정리
         try {
-          const { data: sum } = await api.get(`/itda/stores/${encodeURIComponent(sid)}/summary`);
-          const text = normalizeSummary(sum);
+          const { data } = await api.get(`/itda/stores/${encodeURIComponent(sid)}/summary`);
+          const text = normalizeSummary(data?.summary); // 핵심 변경
           if (alive) setSummary(text);
         } catch {
           if (alive) setSummary("");
