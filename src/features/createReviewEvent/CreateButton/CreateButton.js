@@ -37,30 +37,13 @@ const parseToLocalDate = (v) => {
   return null;
 };
 
-// yyyy-MM-ddTHH:mm:ss.SSS+09:00 (로컬 오프셋 포함)
-const formatLocalIsoWithOffset = (d) => {
+/**
+ * ✅ UTC ISO 문자열로 변환하되 'Z' 제거
+ * 예: 2025-08-24T05:26:00.000Z → "2025-08-24T05:26:00.000"
+ */
+const formatUtcIsoNoZ = (d) => {
   if (!(d instanceof Date) || isNaN(d?.valueOf())) return null;
-  const yyyy = d.getFullYear();
-  const MM = pad2(d.getMonth() + 1);
-  const dd = pad2(d.getDate());
-  const hh = pad2(d.getHours());
-  const mm = pad2(d.getMinutes());
-  const ss = pad2(d.getSeconds());
-  const sss = String(d.getMilliseconds()).padStart(3, "0");
-  const offsetMin = -d.getTimezoneOffset(); // KST: +540
-  const sign = offsetMin >= 0 ? "+" : "-";
-  const abs = Math.abs(offsetMin);
-  const oh = pad2(Math.floor(abs / 60));
-  const om = pad2(abs % 60);
-  return `${yyyy}-${MM}-${dd}T${hh}:${mm}:${ss}.${sss}${sign}${oh}:${om}`;
-};
-
-const normalizeToLocalIsoWithOffset = (v) => {
-  const s = (v ?? "").toString().trim();
-  if (!s) return null;
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}$/.test(s)) return s;
-  const d = parseToLocalDate(s);
-  return d ? formatLocalIsoWithOffset(d) : null;
+  return d.toISOString().replace("Z", "");
 };
 
 const readHidden = (id) => {
@@ -106,9 +89,9 @@ export default function CreateButton({ collect, posterFile }) {
     const rawEnd =
       data.endAt || readHidden("event-end-at") || readHidden("event-end");
 
-    // 로컬 오프셋 포함 ISO로 정규화 → 서버 -9h 이슈 방지
-    const startAt = normalizeToLocalIsoWithOffset(rawStart);
-    const endAt = normalizeToLocalIsoWithOffset(rawEnd);
+    // ✅ UTC ISO (Z 제거, .SSS 유지)로 변환
+    const startAt = formatUtcIsoNoZ(parseToLocalDate(rawStart));
+    const endAt = formatUtcIsoNoZ(parseToLocalDate(rawEnd));
     if (!startAt || !endAt) {
       alert("시작/종료 일시를 선택하세요.");
       return;
