@@ -131,7 +131,7 @@ function EventList({ storeId, address, onPickMission }) {
 
         // 2) summary (JSON 응답에서 summary만 꺼내기) + ✅ 정리
         try {
-          const { data } = await api.get(`/itda/stores/${encodeURIComponent(sid)}/summary`);
+          const { data } = await api.get(`/itda/stores/${encodeURIComponent(sid)}/reviews/summary`);
           const text = normalizeSummary(data?.summary);
           if (alive) setSummary(text);
         } catch {
